@@ -16,11 +16,10 @@
 
 package won.preprocessing;
 
-import gate.Corpus;
-import gate.Factory;
-import gate.Gate;
-import gate.creole.SerialAnalyserController;
+import gate.*;
 import gate.util.GateException;
+import gate.util.persistence.PersistenceManager;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.mail.util.MimeMessageParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,24 +31,28 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.Iterator;
 
 /**
  * Created by hfriedrich on 26.06.2014.
  */
-public class MailProcessing
+public class MailGateProcessing
 {
-  private static final Logger logger = LoggerFactory.getLogger(MailProcessing.class);
+  private static final Logger logger = LoggerFactory.getLogger(MailGateProcessing.class);
+  private static final String GATE_APP_PATH = "resources/gate/mailprocessing/application.xgapp";
 
-  private static final String[] gateProcessingResources = {"gate.creole.tokeniser.DefaultTokeniser",
-                                                           "gate.creole.splitter.SentenceSplitter"};
 
   public static void main(String[] args) {
 
     if (args.length < 2) {
       System.err.println("USAGE: java MailProcessing <input_directory> <output_directory>");
     } else try {
-      MailProcessing.preprocessMails(args[0], args[1]);
-      MailProcessing.processFilesWithGate(args[1]);
+      MailGateProcessing.preprocessMails(args[0], args[1]);
+      Corpus corpus = MailGateProcessing.processFilesWithGate(GATE_APP_PATH, args[1]);
+      // saveXMLDocumentAnnotations(corpus, args[1] + "/xml");
+      GateRESCALProcessing rescal = new GateRESCALProcessing();
+      rescal.addDataFromProcessedCorpus(corpus);
+      rescal.createOutputData(args[1] + "/rescal");
     } catch (IOException e) {
       e.printStackTrace();
     } catch (GateException e) {
@@ -111,8 +114,7 @@ public class MailProcessing
 
         fw.append("From: " + parser.getFrom() + "\n");
         fw.append("To: " + parser.getTo() + "\n");
-        fw.append("SentDate: " + emailMessage.getSentDate() + "\n");
-        fw.append("ReceivedDate: " + emailMessage.getReceivedDate() + "\n");
+        fw.append("Date: " + emailMessage.getSentDate() + "\n");
         fw.append("Subject: " + parser.getSubject() + "\n");
         fw.append("Content: " + parser.getPlainContent() + "\n");
 
@@ -129,37 +131,59 @@ public class MailProcessing
 
   /**
    * After the mails have been preprocessed by {@link #preprocessMails(String,
-   * String)} the Gate processing can be applied.
+   * String)} the Gate processing is executed by the gate application.
    *
-   * @param folder corpus document input folder
+   * @param gateAppPath Path to the gate application file
+   * @param corpusFolder corpus document input folder
    * @throws GateException
    * @throws MalformedURLException
    */
-  private static void processFilesWithGate(String folder) throws GateException, MalformedURLException {
+  private static Corpus processFilesWithGate(String gateAppPath, String corpusFolder) throws GateException,
+    IOException {
 
     // init Gate
+    logger.info("Initialising Gate");
     Gate.init();
-    Gate.getCreoleRegister().registerDirectories(
-      new File(System.getProperty("user.dir")).toURL());
+
+    // load Gate application
+    logger.info("Loading Gate application: {}", gateAppPath);
+    CorpusController app = (CorpusController)
+      PersistenceManager.loadObjectFromFile(new File(gateAppPath));
 
     // add files to a corpus
-    File corpusFolder = new File(folder);
+    File folder = new File(corpusFolder);
     Corpus corpus = Factory.newCorpus("Transient Gate Corpus");
-    for (File file : corpusFolder.listFiles()) {
-      corpus.add(Factory.newDocument(file.getAbsolutePath()));
+    for (File file :folder.listFiles()) {
+      if (!file.isDirectory()) {
+        corpus.add(Factory.newDocument(file.toURI().toURL()));
+      }
     }
-
-    // create the gate pipeline
-    SerialAnalyserController pipeline = (SerialAnalyserController) Factory
-      .createResource("gate.creole.SerialAnalyserController");
-    pipeline.setCorpus(corpus);
-    for (String pr : gateProcessingResources) {
-      pipeline.add((gate.LanguageAnalyser) Factory.createResource(pr));
-    }
+    app.setCorpus(corpus);
 
     // process the documents using Gate
     logger.info("processing files with gate in folder: {}", folder);
-    pipeline.execute();
+    app.execute();
+
+    return corpus;
+  }
+
+  private static void saveXMLDocumentAnnotations(Corpus corpus, String folder) throws IOException {
+
+    logger.info("Saving XML gate annotation files to folder: {}", folder);
+    File outFolder = new File(folder);
+    outFolder.mkdirs();
+    Iterator documentIterator = corpus.iterator();
+    while(documentIterator.hasNext()) {
+      Document currDoc = (Document) documentIterator.next();
+      String xmlDocument = currDoc.toXml();
+      String fileName = java.net.URLDecoder.decode(FilenameUtils.getBaseName(currDoc.getSourceUrl().getFile()),
+                                                   "UTF-8");
+      String path = new String(folder + "/" + fileName + ".xml");
+      logger.debug("Saving XML gate annotation file: {}", path);
+      FileWriter writer = new FileWriter(path);
+      writer.write(xmlDocument);
+      writer.close();
+    }
   }
 
 }
