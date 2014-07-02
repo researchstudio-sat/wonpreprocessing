@@ -1,0 +1,15 @@
+Phase: Content
+Input:  Token  
+Options: control = appelt
+
+Rule: ContentRule
+Priority: 20
+(
+{Token.string == "Content"}
+{Token.string == ":"}
+)
+(
+({Token})*
+):content
+-->
+:content.Content = {rule= "ContentRule" } 

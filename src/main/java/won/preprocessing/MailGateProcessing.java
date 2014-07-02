@@ -35,11 +35,19 @@ import java.util.Iterator;
 
 /**
  * Created by hfriedrich on 26.06.2014.
+ *
+ * Preprocess mail files using Gate to produce input for a matching algorithm.
  */
 public class MailGateProcessing
 {
   private static final Logger logger = LoggerFactory.getLogger(MailGateProcessing.class);
-  private static final String GATE_APP_PATH = "resources/gate/mailprocessing/application.xgapp";
+  private static final String GATE_APP_PATH = "resources/gate/application.xgapp";
+
+  private static final String FROM_PREFIX = "From: ";
+  private static final String TO_PREFIX = "To: ";
+  private static final String DATE_PREFIX = "Date: ";
+  private static final String SUBJECT_PREFIX = "Subject: ";
+  private static final String CONTENT_PREFIX = "Content: ";
 
 
   public static void main(String[] args) {
@@ -52,11 +60,11 @@ public class MailGateProcessing
       // saveXMLDocumentAnnotations(corpus, args[1] + "/xml");
       GateRESCALProcessing rescal = new GateRESCALProcessing();
       rescal.addDataFromProcessedCorpus(corpus);
-      rescal.createOutputData(args[1] + "/rescal");
+      rescal.createRescalData(args[1] + "/rescal");
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.error(e.getMessage(), e);
     } catch (GateException e) {
-      e.printStackTrace();
+      logger.error(e.getMessage(), e);
     }
   }
 
@@ -103,7 +111,7 @@ public class MailGateProcessing
         if (parser.hasPlainContent()) {
           content = parser.getPlainContent();
         } else {
-          logger.warn("no plain content in file");
+          logger.warn("no plain content in file: {}", file);
           continue;
         }
 
@@ -112,11 +120,11 @@ public class MailGateProcessing
         logger.debug("- mail subject: {}", parser.getSubject());
         fw = new FileWriter(outfile);
 
-        fw.append("From: " + parser.getFrom() + "\n");
-        fw.append("To: " + parser.getTo() + "\n");
-        fw.append("Date: " + emailMessage.getSentDate() + "\n");
-        fw.append("Subject: " + parser.getSubject() + "\n");
-        fw.append("Content: " + parser.getPlainContent() + "\n");
+        fw.append(FROM_PREFIX + parser.getFrom() + "\n");
+        fw.append(TO_PREFIX + parser.getTo() + "\n");
+        fw.append(DATE_PREFIX + emailMessage.getSentDate() + "\n");
+        fw.append(SUBJECT_PREFIX + parser.getSubject() + "\n");
+        fw.append(CONTENT_PREFIX + parser.getPlainContent() + "\n");
 
       } catch (MessagingException me) {
         logger.error("Error opening mail file: " + file.getAbsolutePath(), me);

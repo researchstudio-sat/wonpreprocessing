@@ -16,18 +16,27 @@
 
 package won.preprocessing;
 
+import com.jmatio.io.MatFileWriter;
+import com.jmatio.types.MLArray;
+import com.jmatio.types.MLUInt8;
 import gate.Annotation;
 import gate.Corpus;
 import gate.Document;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 /**
  * User: hfriedrich
  * Date: 01.07.2014
+ *
+ * Create data (binary tensor) for the RESCAL algorithm from a corpus of text files.
  */
 public class GateRESCALProcessing
 {
@@ -36,15 +45,22 @@ public class GateRESCALProcessing
   public static final String ATTRIBUTE_ANNOTATION = "SubjectToken";
   public static final String FEATURE_VALUE = "string";
 
-  private Map<String, Set<String>> attributeEntityMap;
+  private ArrayList<String> needList;
+  private Map<String, Set<String>> attributeNeedMap;
 
   public GateRESCALProcessing() {
-    attributeEntityMap = new TreeMap<String, Set<String>>();
-
+    attributeNeedMap = new TreeMap<String, Set<String>>();
+    needList = new ArrayList<String>();
   }
 
-  public void addDataFromProcessedCorpus(Corpus corpus) {
-
+  /**
+   * Add a Gate-processed corpus to the class to generate output of it later by {@link #createRescalData(String)}.
+   * The documents in the corpus must have been annotated correctly by Gate (see annotation definition constants in
+   * this class).
+   *
+   * @param corpus
+   */
+  public void addDataFromProcessedCorpus(Corpus corpus) throws UnsupportedEncodingException {
     Iterator documentIterator = corpus.iterator();
     while (documentIterator.hasNext()) {
       Document currDoc = (Document) documentIterator.next();
@@ -55,29 +71,75 @@ public class GateRESCALProcessing
             logger.error("Feature value '{}' not found in annotation '{}'", FEATURE_VALUE,
                          annotation.getId());
           } else {
-            addAttributeEntityPairToMap(attrValue, annotation.getId().toString());
+            String needId = java.net.URLDecoder.decode(FilenameUtils.getBaseName(currDoc.getSourceUrl().getFile()),
+                                                                         "UTF-8");
+            addAttributeNeedPairToMap(attrValue, needId);
           }
         }
       }
     }
   }
 
-  public void createOutputData(String outputFolder) {
+  /**
+   * Save the data that was added using {@link #addDataFromProcessedCorpus(gate.Corpus)}.
+   * The data created is binary tensor data saved in a matlab file. Additionally a header file is generated for
+   * correlation of indices in the tensor with the original needs/documents.
+   *
+   * @param outputFolder data folder
+   * @throws IOException
+   */
+  public void createRescalData(String outputFolder) throws IOException {
 
     logger.info("create RESCAL data in folder: {}", outputFolder);
     File outFolder = new File(outputFolder);
     outFolder.mkdirs();
 
-    // TODO: ...
-  }
+    // map the Needs and attributes both as entities in the RESCAL tensor
+    int numEntities = attributeNeedMap.keySet().size() + needList.size();
+    int[] dims = {numEntities, numEntities, 1};
+    logger.info("- needs: {}", needList.size());
+    logger.info("- attributes: {}", attributeNeedMap.keySet().size());
+    logger.info("- tensor size: {} x {} x " + dims[2], numEntities, numEntities);
 
-  private void addAttributeEntityPairToMap(String attribute, String entity) {
-    Set<String> entities = attributeEntityMap.get(attribute);
-    if (entities == null) {
-      entities = new TreeSet<String>();
-      attributeEntityMap.put(attribute, entities);
+    // write the header file (first needs, then attributes)
+    FileWriter fw = new FileWriter(new File(outputFolder + "/" + "headers.txt"));
+    for (String need : needList) {
+      fw.append("Need: " + need + "\n");
     }
-    entities.add(entity);
+
+    for (String attr : attributeNeedMap.keySet()) {
+      fw.append("Attr: " + attr + "\n");
+    }
+    fw.close();
+
+    // create the tensor
+    MLUInt8 mluInt8 = new MLUInt8("Rs", dims);
+    int attrIndex = needList.size();
+    for (String attr : attributeNeedMap.keySet()) {
+      for (String need : attributeNeedMap.get(attr)) {
+        int needIndex = needList.indexOf(need);
+        int tensorIndex = attrIndex * dims[0] + needIndex;
+        mluInt8.set((byte) 1, tensorIndex);
+      }
+      attrIndex++;
+    }
+
+    // write the output matlab file
+    MatFileWriter matWriter = new MatFileWriter();
+    final ArrayList<MLArray> list = new ArrayList<MLArray>();
+    list.add(mluInt8);
+    matWriter.write(new File(outputFolder + "/" + "tensordata.mat"), list);
   }
 
+  private void addAttributeNeedPairToMap(String attribute, String need) {
+    Set<String> needs = attributeNeedMap.get(attribute);
+    if (needs == null) {
+      needs = new TreeSet<String>();
+      attributeNeedMap.put(attribute, needs);
+    }
+    needs.add(need);
+    if (!needList.contains(need)) {
+      needList.add(need);
+    }
+  }
 }

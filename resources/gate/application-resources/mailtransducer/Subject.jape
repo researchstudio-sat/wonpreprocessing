@@ -1,0 +1,18 @@
+Phase: Subject
+Input:  Token  
+Options: control = brill
+
+Rule: SubjectRule
+Priority: 20
+(
+{Token.string == "Subject"}
+{Token.string == ":"}
+)
+(
+({Token})*
+):subjectline
+(
+{Token.string == "Content"}
+)
+-->
+:subjectline.Subject = {rule= "SubjectRule" } 

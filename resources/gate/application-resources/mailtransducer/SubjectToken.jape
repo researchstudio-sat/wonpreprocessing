@@ -1,0 +1,11 @@
+Phase: SubjectToken
+Input:  Subject Token
+Options: control = brill
+
+Rule: SubjectTokenRule
+Priority: 20
+(
+{Token.kind == word, Token within Subject}
+):token
+-->
+:token.SubjectToken = {rule = "SubjectTokenRule", string = :token.Token.string} 
