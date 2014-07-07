@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # load data
     mat = loadmat('C:/dev/temp/testcorpus/out/rescal/tensordata.mat')
     K = array(mat['Rs'], np.float32)
-    rank = 50
+    rank = 100
 
     e, k = K.shape[0], K.shape[2]
     SZ = e * e * k;
@@ -71,8 +71,8 @@ if __name__ == '__main__':
     out = open(outputFile, 'w+')
     for line in range(0, e-1):
         darr = np.array(P[line,:,0])
-        indices = np.argsort(darr)[-50:]
-        predicted_entities = [entities[i][6:] for i in indices]
+        indices = (np.argsort(darr))[-20:]
+        predicted_entities = [entities[i][6:] for i in reversed(indices)]
         entities[line] = entities[line].ljust(150)
         out.write(entities[line] + ': ' + ', '.join(predicted_entities) + '\n')
 

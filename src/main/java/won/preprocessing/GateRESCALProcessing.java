@@ -78,7 +78,7 @@ public class GateRESCALProcessing
             if (annotation.getType().equals(ATTRIBUTE_TOPIC_ANNOTATION)) {
               addAttributeNeedPairToMap(attrValue.toLowerCase(), needId, 0);
             } else if (annotation.getType().equals(ATTRIBUTE_DESCRIPTION_ANNOTATION)) {
-              addAttributeNeedPairToMap(attrValue.toLowerCase(), needId, 1);
+              //addAttributeNeedPairToMap(attrValue.toLowerCase(), needId, 1);
             }
           }
         }
@@ -100,6 +100,25 @@ public class GateRESCALProcessing
     File outFolder = new File(outputFolder);
     outFolder.mkdirs();
 
+    // remove the attributes which occur only in one need
+    List<String> removeAttr = new LinkedList<String>();
+    for (String attr : attributeNeedMap.keySet()) {
+      int frequency = 0;
+      for (int slice = 0; slice < 2; slice++) {
+        Set<String> needs = attributeNeedMap.get(attr).get(slice);
+        if (needs != null) {
+          frequency += needs.size();
+        }
+      }
+      if (frequency < 2) {
+        removeAttr.add(attr);
+      }
+    }
+
+    for (String attr : removeAttr) {
+      attributeNeedMap.remove(attr);
+    }
+
     // map the Needs and attributes both as entities in the RESCAL tensor
     int numEntities = needList.size() + attributeNeedMap.keySet().size();
     int[] dims = {numEntities, numEntities, 2};
@@ -118,18 +137,29 @@ public class GateRESCALProcessing
     }
     fw.close();
 
-    // create the tensor
+    // write the attribute frequency (of slice 0)
+    fw = new FileWriter(new File(outputFolder + "/" + "attrFrequency.txt"));
+    for (String attr : attributeNeedMap.keySet()) {
+      int frequency = 0;
+      Set<String> needs = attributeNeedMap.get(attr).get(0);
+      if (needs != null) {
+        frequency = needs.size();
+      }
+      fw.append(String.format("%-30s",  attr) +  ": " + frequency + "\n");
+    }
+    fw.close();
 
-    // create the first front slice: need - topic attribute relations
+    // create the tensor. The first front slice: need - topic attribute relations.
+    // The second front slice: need - description attribute relations.
     MLUInt8 slices = new MLUInt8("Rs", dims);
-    for (int dim = 0; dim < dims[2]; dim++) {
+    for (int slice = 0; slice < dims[2]; slice++) {
       int attrTopicIndex = needList.size();
       for (String attr : attributeNeedMap.keySet()) {
-        Set<String> needs = attributeNeedMap.get(attr).get(dim);
+        Set<String> needs = attributeNeedMap.get(attr).get(slice);
         if (needs != null) {
           for (String need : needs) {
             int needIndex = needList.indexOf(need);
-            int tensorIndex = dim * numEntities * numEntities + attrTopicIndex * numEntities + needIndex;
+            int tensorIndex = slice * numEntities * numEntities + attrTopicIndex * numEntities + needIndex;
             slices.set((byte) 1, tensorIndex);
           }
         }
