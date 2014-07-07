@@ -2,4 +2,9 @@ MultiPhase: Email
 Phases: 
 Subject
 Content
+Brackets
+FilterToken
+ContentToken
 SubjectToken
+TopicToken
+DescriptionToken

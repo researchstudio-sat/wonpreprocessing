@@ -42,14 +42,15 @@ public class GateRESCALProcessing
 {
   private static final Logger logger = LoggerFactory.getLogger(GateRESCALProcessing.class);
 
-  public static final String ATTRIBUTE_ANNOTATION = "SubjectToken";
+  public static final String ATTRIBUTE_TOPIC_ANNOTATION = "TopicToken";
+  public static final String ATTRIBUTE_DESCRIPTION_ANNOTATION = "DescriptionToken";
   public static final String FEATURE_VALUE = "string";
 
   private ArrayList<String> needList;
-  private Map<String, Set<String>> attributeNeedMap;
+  private Map<String, Map<Integer,Set<String>>> attributeNeedMap;
 
   public GateRESCALProcessing() {
-    attributeNeedMap = new TreeMap<String, Set<String>>();
+    attributeNeedMap = new TreeMap<String, Map<Integer,Set<String>>>();
     needList = new ArrayList<String>();
   }
 
@@ -65,7 +66,8 @@ public class GateRESCALProcessing
     while (documentIterator.hasNext()) {
       Document currDoc = (Document) documentIterator.next();
       for (Annotation annotation : currDoc.getAnnotations()) {
-        if (annotation.getType().equals(ATTRIBUTE_ANNOTATION)) {
+        if (annotation.getType().equals(ATTRIBUTE_TOPIC_ANNOTATION) || annotation.getType().equals
+          (ATTRIBUTE_DESCRIPTION_ANNOTATION)) {
           String attrValue = (String) annotation.getFeatures().get(FEATURE_VALUE);
           if (attrValue == null) {
             logger.error("Feature value '{}' not found in annotation '{}'", FEATURE_VALUE,
@@ -73,7 +75,11 @@ public class GateRESCALProcessing
           } else {
             String needId = java.net.URLDecoder.decode(FilenameUtils.getBaseName(currDoc.getSourceUrl().getFile()),
                                                                          "UTF-8");
-            addAttributeNeedPairToMap(attrValue, needId);
+            if (annotation.getType().equals(ATTRIBUTE_TOPIC_ANNOTATION)) {
+              addAttributeNeedPairToMap(attrValue.toLowerCase(), needId, 0);
+            } else if (annotation.getType().equals(ATTRIBUTE_DESCRIPTION_ANNOTATION)) {
+              addAttributeNeedPairToMap(attrValue.toLowerCase(), needId, 1);
+            }
           }
         }
       }
@@ -95,13 +101,13 @@ public class GateRESCALProcessing
     outFolder.mkdirs();
 
     // map the Needs and attributes both as entities in the RESCAL tensor
-    int numEntities = attributeNeedMap.keySet().size() + needList.size();
-    int[] dims = {numEntities, numEntities, 1};
+    int numEntities = needList.size() + attributeNeedMap.keySet().size();
+    int[] dims = {numEntities, numEntities, 2};
     logger.info("- needs: {}", needList.size());
     logger.info("- attributes: {}", attributeNeedMap.keySet().size());
     logger.info("- tensor size: {} x {} x " + dims[2], numEntities, numEntities);
 
-    // write the header file (first needs, then attributes)
+    // write the header file (first needs, then topic attributes, then description attributes)
     FileWriter fw = new FileWriter(new File(outputFolder + "/" + "headers.txt"));
     for (String need : needList) {
       fw.append("Need: " + need + "\n");
@@ -113,29 +119,43 @@ public class GateRESCALProcessing
     fw.close();
 
     // create the tensor
-    MLUInt8 mluInt8 = new MLUInt8("Rs", dims);
-    int attrIndex = needList.size();
-    for (String attr : attributeNeedMap.keySet()) {
-      for (String need : attributeNeedMap.get(attr)) {
-        int needIndex = needList.indexOf(need);
-        int tensorIndex = attrIndex * dims[0] + needIndex;
-        mluInt8.set((byte) 1, tensorIndex);
+
+    // create the first front slice: need - topic attribute relations
+    MLUInt8 slices = new MLUInt8("Rs", dims);
+    for (int dim = 0; dim < dims[2]; dim++) {
+      int attrTopicIndex = needList.size();
+      for (String attr : attributeNeedMap.keySet()) {
+        Set<String> needs = attributeNeedMap.get(attr).get(dim);
+        if (needs != null) {
+          for (String need : needs) {
+            int needIndex = needList.indexOf(need);
+            int tensorIndex = dim * numEntities * numEntities + attrTopicIndex * numEntities + needIndex;
+            slices.set((byte) 1, tensorIndex);
+          }
+        }
+        attrTopicIndex++;
       }
-      attrIndex++;
     }
 
     // write the output matlab file
     MatFileWriter matWriter = new MatFileWriter();
     final ArrayList<MLArray> list = new ArrayList<MLArray>();
-    list.add(mluInt8);
+    list.add(slices);
     matWriter.write(new File(outputFolder + "/" + "tensordata.mat"), list);
   }
 
-  private void addAttributeNeedPairToMap(String attribute, String need) {
-    Set<String> needs = attributeNeedMap.get(attribute);
+  private void addAttributeNeedPairToMap(String attribute, String need, Integer slice) {
+
+    Map<Integer, Set<String>> sliceMap = attributeNeedMap.get(attribute);
+    if (sliceMap == null) {
+      sliceMap = new HashMap<Integer, Set<String>>();
+    }
+
+    Set<String> needs = sliceMap.get(slice);
     if (needs == null) {
       needs = new TreeSet<String>();
-      attributeNeedMap.put(attribute, needs);
+      sliceMap.put(slice, needs);
+      attributeNeedMap.put(attribute, sliceMap);
     }
     needs.add(need);
     if (!needList.contains(need)) {

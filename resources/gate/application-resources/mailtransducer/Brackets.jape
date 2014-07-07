@@ -1,0 +1,23 @@
+Phase: Brackets
+Input: Token
+Options: control = first
+
+Rule: RoundBracketRule
+Priority: 20
+(
+{Token.string == "("}
+({Token})*
+{Token.string == ")"}
+):tokens
+-->
+:tokens.BracketExpression = {rule = "RoundBracketRule"} 
+
+Rule: SquareBracketRule
+Priority: 20
+(
+{Token.string == "["}
+({Token})*
+{Token.string == "]"}
+):tokens
+-->
+:tokens.BracketExpression = {rule = "SquareBracketRule"} 

@@ -1,0 +1,11 @@
+Phase: DescriptionToken
+Input: FilterToken Lookup ContentToken
+Options: control = brill
+
+Rule: DescriptionTokenRule
+Priority: 20
+(
+{ContentToken, !FilterToken, !Lookup.majorType == location} 
+):token
+-->
+:token.DescriptionToken = {rule = "DescriptionTokenRule", string = :token.ContentToken.string} 

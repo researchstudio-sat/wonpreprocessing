@@ -101,3 +101,4 @@ country_code.lst:country_code
 say.lst:say
 person_male_lower.lst:person_first:male
 person_female_lower.lst:person_first:female
+stop2.lst:stop
