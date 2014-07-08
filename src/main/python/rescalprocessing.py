@@ -72,7 +72,7 @@ if __name__ == '__main__':
     for line in range(0, e-1):
         darr = np.array(P[line,:,0])
         indices = (np.argsort(darr))[-20:]
-        predicted_entities = [entities[i][6:] for i in reversed(indices)]
+        predicted_entities = [entities[i][6:] + " (" + str(round(darr[i], 2)) + ")" for i in reversed(indices)]
         entities[line] = entities[line].ljust(150)
         out.write(entities[line] + ': ' + ', '.join(predicted_entities) + '\n')
 
