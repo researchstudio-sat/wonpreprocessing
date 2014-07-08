@@ -4,6 +4,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger('Mail Example')
 
+import sys
 import numpy as np
 from numpy import dot, array, zeros, setdiff1d
 from numpy.linalg import norm
@@ -41,7 +42,13 @@ def normalize_predictions(P, e, k):
 if __name__ == '__main__':
 
     # load data
-    mat = loadmat('C:/dev/temp/testcorpus/out/rescal/tensordata.mat')
+    _log.info("Read mat input file: " + sys.argv[1])
+    mat = loadmat(sys.argv[1])
+
+    _log.info("Read header input file: " + sys.argv[2])
+    input = open(sys.argv[2])
+    entities = input.read().splitlines()
+
     K = array(mat['Rs'], np.float32)
     rank = 100
 
@@ -62,17 +69,12 @@ if __name__ == '__main__':
     #_log.info('normalize predictions ...')
     #P = normalize_predictions(P, e, k)
 
-    headersFile = 'C:/dev/temp/testcorpus/out/rescal/headers.txt'
-    input = open(headersFile)
-    entities = input.read().splitlines()
-
-    _log.info('writing output file  ...')
-    outputFile = 'out.txt'
-    out = open(outputFile, 'w+')
+    _log.info('Writing output file: ' + sys.argv[3])
+    out = open(sys.argv[3], 'w+')
     for line in range(0, e-1):
         darr = np.array(P[line,:,0])
         indices = (np.argsort(darr))[-20:]
-        predicted_entities = [entities[i][6:] for i in reversed(indices)]
+        predicted_entities = [entities[i][6:] + " (" + str(round(darr[i], 2)) + ")" for i in reversed(indices)]
         entities[line] = entities[line].ljust(150)
         out.write(entities[line] + ': ' + ', '.join(predicted_entities) + '\n')
 
