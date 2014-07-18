@@ -6,5 +6,6 @@ Brackets
 FilterToken
 ContentToken
 SubjectToken
+NeedClassificationToken
 TopicToken
 DescriptionToken
