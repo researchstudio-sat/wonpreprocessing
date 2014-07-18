@@ -49,34 +49,38 @@ if __name__ == '__main__':
     input = open(sys.argv[2])
     entities = input.read().splitlines()
 
-    K = array(mat['Rs'], np.float32)
+    K = []
+    for i in range(1,3):
+        G = mat['Rs' + str(i)]
+        I,J = G.nonzero()
+        V = G.data
+        K.append(sparse.csr_matrix((V,(I,J)),G.shape))
+
     rank = 100
-
-    e, k = K.shape[0], K.shape[2]
+    e = K[0].shape[0]
+    k = 1
     SZ = e * e * k;
-
-    # construct array for rescal
-    T = [lil_matrix(K[:, :, i]) for i in range(k)]
 
     _log.info('start processing ...')
     _log.info('Datasize: %d x %d x %d | No. of classes: %d | Rank: %d' % (
-        T[0].shape + (len(T),) + (k,) + (rank,))
+        K[0].shape + (len(K),) + (k,) + (rank,))
     )
 
     # rescal processing
-    P = predict_rescal_als(T, rank)
+    P = predict_rescal_als(K, rank)
 
     #_log.info('normalize predictions ...')
     #P = normalize_predictions(P, e, k)
 
     _log.info('Writing output file: ' + sys.argv[3])
     out = open(sys.argv[3], 'w+')
-    for line in range(0, e-1):
-        darr = np.array(P[line,:,0])
+    for line in range(0, len(entities)):
+        darr = np.array(P[line,:,1])
         indices = (np.argsort(darr))[-20:]
         predicted_entities = [entities[i][6:] + " (" + str(round(darr[i], 2)) + ")" for i in reversed(indices)]
-        entities[line] = entities[line].ljust(150)
-        out.write(entities[line] + ': ' + ', '.join(predicted_entities) + '\n')
+        need = entities[line].ljust(150)
+        if (need.startswith('Need:')):
+            out.write(need + ': ' + ', '.join(predicted_entities) + '\n')
 
 
 
