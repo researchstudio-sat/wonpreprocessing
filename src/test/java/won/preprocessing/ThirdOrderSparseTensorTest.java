@@ -22,21 +22,21 @@ import org.junit.Test;
  * User: hfriedrich
  * Date: 09.07.2014
  */
-public class ThirdOrderTensorTest
+public class ThirdOrderSparseTensorTest
 {
   private static final double DELTA = 0.001d;
 
-  private ThirdOrderTensor testTensor1;
+  private ThirdOrderSparseTensor testTensor1;
 
   @Before
   public void initTestTensor() {
-    testTensor1 = new ThirdOrderTensor(4, 4, 3, 10);
+    testTensor1 = new ThirdOrderSparseTensor(4, 4, 3, 10);
   }
 
   @Test
   public void tensorCreation() {
 
-    ThirdOrderTensor tensor = new ThirdOrderTensor(4, 3, 2, 10);
+    ThirdOrderSparseTensor tensor = new ThirdOrderSparseTensor(4, 3, 2, 10);
     int[] dim = {4, 3, 2};
     Assert.assertArrayEquals(tensor.getDimensions(), dim);
     for (int x3 = 0; x3 < dim[2]; x3++) {

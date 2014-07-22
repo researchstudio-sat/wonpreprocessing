@@ -61,16 +61,15 @@ public class WonMatchingData
   private static final String DATA_FILE = "data.mat";
   private static final String HEADERS_FILE = "headers.txt";
 
-  private ThirdOrderTensor tensor;
+  private ThirdOrderSparseTensor tensor;
   private ArrayList<String> needs;
   private ArrayList<String> attributes;
   private int nextIndex = 0;
-  private int maxNonZeros = 0;
 
   public WonMatchingData() {
 
     int dim = MAX_DIMENSION;
-    tensor = new ThirdOrderTensor(dim, dim, SliceTypes.values().length, 1);
+    tensor = new ThirdOrderSparseTensor(dim, dim, SliceTypes.values().length, 1);
     needs = new ArrayList<String>();
     attributes = new ArrayList<String>();
   }
@@ -83,8 +82,6 @@ public class WonMatchingData
     int x2 = addNeed(need2);
     tensor.setEntry(1.0d, x1, x2, SliceTypes.HAS_CONNECTION.ordinal());
     tensor.setEntry(1.0d, x2, x1, SliceTypes.HAS_CONNECTION.ordinal());
-    maxNonZeros++;
-    maxNonZeros++;
   }
 
   public void addNeedType(String need, NeedType type) {
@@ -93,7 +90,6 @@ public class WonMatchingData
     int x1 = addNeed(need);
     int x2 = addAttribute(type.toString());
     tensor.setEntry(1.0d, x1, x2, SliceTypes.IS_NEED_TYPE.ordinal());
-    maxNonZeros++;
   }
 
   public void addNeedAttribute(String need, String attribute, AttributeType attrType) {
@@ -105,7 +101,6 @@ public class WonMatchingData
     int x3 = AttributeType.TOPIC.equals(attrType) ? SliceTypes.HAS_TOPIC_ATTRIBUTE.ordinal() : SliceTypes
       .HAS_DESCRIPTION_ATTRIBUTE.ordinal();
     tensor.setEntry(1.0d, x1, x2, x3);
-    maxNonZeros++;
   }
 
   private int addNeed(String need) {
@@ -130,12 +125,21 @@ public class WonMatchingData
     if (NeedType.OFFER.name().equals(name) || NeedType.WANT.name().equals(name)) {
       throw new IllegalArgumentException("Need/Attribute is not allowed to be named like keyword 'OFFER' or 'WANT'");
     }
+
+    if (name == null || name.equals("")) {
+      throw new IllegalArgumentException("Need/Attribute is not allowed to be null or empty");
+    }
   }
 
-  protected ThirdOrderTensor createFinalTensor() {
+  protected ThirdOrderSparseTensor createFinalTensor() {
 
     int dim = getNeeds().size() + getAttributes().size();
-    tensor.resize(dim, dim, SliceTypes.values().length, maxNonZeros);
+
+    int maxNZ = 0;
+    for (SliceTypes types : SliceTypes.values()) {
+      maxNZ = Math.max(tensor.getNonZeroEntries(types.ordinal()), maxNZ);
+    }
+    tensor.resize(dim, dim, SliceTypes.values().length, maxNZ);
     return tensor;
   }
 
@@ -189,8 +193,8 @@ public class WonMatchingData
 
     logger.info("- needs: {}", getNeeds().size());
     logger.info("- attributes: {}", getAttributes().size());
+    logger.info("- connections: {}", tensor.getNonZeroEntries(SliceTypes.HAS_CONNECTION.ordinal()) / 2);
     logger.info("- tensor size: {} x {} x " + tensor.getDimensions()[2], tensor.getDimensions()[0],
                 tensor.getDimensions()[1]);
   }
-
 }

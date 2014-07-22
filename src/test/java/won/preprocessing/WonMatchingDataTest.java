@@ -121,7 +121,7 @@ public class WonMatchingDataTest
     data.addNeedConnection("Need1", "Need2");
     data.addNeedType("Need3", WonMatchingData.NeedType.WANT);
 
-    ThirdOrderTensor tensor = data.createFinalTensor();
+    ThirdOrderSparseTensor tensor = data.createFinalTensor();
     int[] dim = {9, 9, WonMatchingData.SliceTypes.values().length};
     Assert.assertArrayEquals(dim, tensor.getDimensions());
 

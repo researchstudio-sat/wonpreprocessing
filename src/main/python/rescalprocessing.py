@@ -50,7 +50,7 @@ if __name__ == '__main__':
     entities = input.read().splitlines()
 
     K = []
-    for i in range(1,3):
+    for i in range(0,3):
         G = mat['Rs' + str(i)]
         I,J = G.nonzero()
         V = G.data
@@ -75,12 +75,30 @@ if __name__ == '__main__':
     _log.info('Writing output file: ' + sys.argv[3])
     out = open(sys.argv[3], 'w+')
     for line in range(0, len(entities)):
-        darr = np.array(P[line,:,1])
+        darr = np.array(P[line,:,2])
         indices = (np.argsort(darr))[-20:]
         predicted_entities = [entities[i][6:] + " (" + str(round(darr[i], 2)) + ")" for i in reversed(indices)]
         need = entities[line].ljust(150)
         if (need.startswith('Need:')):
             out.write(need + ': ' + ', '.join(predicted_entities) + '\n')
 
-
+    _log.info('Writing output file: ' + sys.argv[3] + ".con")
+    out = open(sys.argv[3] + ".con", 'w+')
+    for line in range(0, len(entities)):
+        darr = np.array(P[line,:,0])
+        indices = (np.argsort(darr))[-20:]
+        if darr[indices[-1]] > 0.1:
+            newIndices = []
+            for i in indices:
+                if darr[i] > 0.1:
+                    newIndices.append(i)
+            indices = newIndices
+            predicted_entities = [entities[i] + " (" + str(round(darr[i], 2)) + ")" for i in reversed(indices)]
+            need = entities[line].ljust(150)
+            if (need.startswith('Need:')):
+                out.write(need[6:] + '\n')
+                for entity in predicted_entities:
+                    if (entity.startswith('Need:')):
+                        out.write(entity[6:] + '\n')
+            out.write('\n')
 

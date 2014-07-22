@@ -60,6 +60,7 @@ public class MailGateProcessing
       // saveXMLDocumentAnnotations(corpus, args[1] + "/xml");
       GateRESCALProcessing rescal = new GateRESCALProcessing();
       rescal.addDataFromProcessedCorpus(corpus);
+      rescal.addConnectionData(args[1] + "/rescal/connections.txt");
       rescal.createRescalData(args[1] + "/rescal");
     } catch (IOException e) {
       logger.error(e.getMessage(), e);

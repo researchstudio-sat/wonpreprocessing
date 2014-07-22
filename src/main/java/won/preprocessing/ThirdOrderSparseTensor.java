@@ -24,15 +24,17 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 /**
+ * Sparse third order tensor based on a jmatio (MATLAB) implementation of sparse matrices.
+ *
  * User: hfriedrich
  * Date: 09.07.2014
  */
-public class ThirdOrderTensor
+public class ThirdOrderSparseTensor
 {
   private MLSparseEx[] slices;
   private int[] dims;
 
-  public ThirdOrderTensor(int dimX1, int dimX2, int dimX3, int nzMaxPerSlice) {
+  public ThirdOrderSparseTensor(int dimX1, int dimX2, int dimX3, int nzMaxPerSlice) {
 
     dims = null;
     slices = null;
@@ -61,6 +63,10 @@ public class ThirdOrderTensor
 
   public double getEntry(int x1, int x2, int x3) {
     return slices[x3].get(x1, x2);
+  }
+
+  public int getNonZeroEntries(int dimX3) {
+    return slices[dimX3].getCurrentNZ();
   }
 
   public int[] getDimensions() {

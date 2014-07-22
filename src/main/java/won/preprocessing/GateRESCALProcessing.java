@@ -23,9 +23,13 @@ import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * User: hfriedrich
@@ -135,6 +139,43 @@ public class GateRESCALProcessing
                    annotation.getType());
     }
     return attrValue.toLowerCase();
+  }
+
+  /**
+   * Add data about Need connections. Use filenames as names for needs, one need per line. Create a need connection
+   * between a Need and all following Needs until empty line in text file.
+   *
+   */
+  public void addConnectionData(String connectionFile) throws IOException {
+
+    logger.info("Create Need connection from input file: {}", connectionFile);
+    BufferedReader reader = new BufferedReader(new FileReader(connectionFile));
+    String line = "";
+    List<String> needs = new LinkedList<String>();
+
+    while ((line = reader.readLine()) != null) {
+      if (line.length() == 0) {
+
+        // add a connection between the first need and all following needs until empty line
+        for (int i = 1; i < needs.size(); i++) {
+          if (!matchingData.getNeeds().contains(needs.get(0)) || !matchingData.getNeeds().contains(needs.get(i))) {
+            logger.warn("add connection between new needs");
+          }
+          matchingData.addNeedConnection(needs.get(0), needs.get(i));
+        }
+        needs = new LinkedList<String>();
+      } else {
+        needs.add(line);
+      }
+    }
+
+    // add a connection between the first need and all following needs until empty line
+    for (int i = 1; i < needs.size(); i++) {
+      if (!matchingData.getNeeds().contains(needs.get(0)) || !matchingData.getNeeds().contains(needs.get(i))) {
+        logger.warn("add connection between new needs");
+      }
+      matchingData.addNeedConnection(needs.get(0), needs.get(i));
+    }
   }
 
   private String createNeedId(Document doc) throws UnsupportedEncodingException {
