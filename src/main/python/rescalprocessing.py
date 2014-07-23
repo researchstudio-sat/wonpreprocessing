@@ -15,18 +15,23 @@ from scipy import sparse
 from sklearn.metrics import precision_recall_curve, auc
 from rescal import rescal_als
 from sklearn import datasets
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
 
-def predict_rescal_als(T, rank):
-    A, R, _, _, _ = rescal_als(
-        T, rank, init='nvecs', conv=1e-3,
-        lambda_A=0, lambda_R=0, compute_fit='true'
-    )
+def predict_rescal_als(A, R):
     n = A.shape[0]
     P = zeros((n, n, len(R)))
     for k in range(len(R)):
         P[:, :, k] = dot(A, dot(R[k], A.T))
     return P
 
+def scale_slice(slice, weight):
+    scale = csr_matrix([[100.0 for i in range(0, K[0].shape[0])]])
+    return slice.multiply(scale);
+
+def similarity_ranking(A):
+    dist = squareform(pdist(A, metric='cosine'))
+    return dist
 
 def normalize_predictions(P, e, k):
     for a in range(e):
@@ -64,21 +69,32 @@ def write_term_output(file, P, slice, entities):
         if (need.startswith('Need:')):
             out.write(need + ': ' + ', '.join(predicted_entities) + '\n')
 
-def write_connection_output(file, P, slice, entities):
+def write_connection_output(file, input_tensor, predicted_tensor, slice, entities):
     _log.info('Writing output file: ' + file)
     out = open(file, 'w+')
     for line in range(0, len(entities)):
         if (entities[line].startswith('Need:')):
-            darr = np.array(P[line,:,slice])
+            darr = np.array(predicted_tensor[line,:,slice])
             indices = reversed((np.argsort(darr))[-20:])
             indices = [i for i in indices if darr[i] > 0.1]
             if len(indices) > 0:
-                predicted_entities = [entities[i] + " (" + str(round(darr[i], 2)) + ")" for i in indices if entities[
-                    i].startswith('Need:')]
-                out.write(entities[line][6:] + '\n')
-                for entity in predicted_entities:
-                    out.write(entity[6:] + '\n')
                 out.write('\n')
+                out.write(entities[line][6:] + '\n')
+            for i in indices:
+                if (entities[i].startswith('Need:')):
+                    newPrediction = ("NEW_PREDICTION: " if input_tensor[slice].getrow(line).getcol(i)[0,0] == 0.0 else "")
+                    predicted_entities = newPrediction + entities[i] + " (" + str(round(darr[i], 2)) + ")"
+                    out.write(predicted_entities + '\n')
+
+def write_need_output(file, similarity_matrix, entities):
+    _log.info('Writing output file: ' + file)
+    out = open(file, 'w+')
+    for line in range(0, len(entities)):
+        if (entities[line].startswith('Need:')):
+            indices = (np.argsort(similarity_matrix[line,:]))[:10]
+            predicted_entities = [entities[i] + " (" + str(round(similarity_matrix[line,i], 4)) + ")" for i in indices if entities[
+                i].startswith('Need:') and i != line]
+            out.write(entities[line] + '\n' + '\n'.join(predicted_entities) + '\n\n')
 
 
 if __name__ == '__main__':
@@ -93,13 +109,27 @@ if __name__ == '__main__':
     )
 
     # execute rescal algorithm
-    P = predict_rescal_als(K, rank)
+    A, R, _, _, _ = rescal_als(
+        K, rank, init='nvecs', conv=1e-3,
+        lambda_A=0, lambda_R=0, compute_fit='true'
+    )
+    P = predict_rescal_als(A, R)
 
     # topic attributes (terms) are saved in slice 2
     write_term_output(sys.argv[3] + "/outterm.txt", P, 2, entities)
 
     # connections are saved in slice 0
-    write_connection_output(sys.argv[3] + "/outconn.txt", P, 0, entities)
+    write_connection_output(sys.argv[3] + "/outconn.txt", K, P, 0, entities)
+
+    # need similarity - use slices connection and attributes, not classification (slice 1)
+    A, R, _, _, _ = rescal_als(
+        [K[0],K[2]], rank, init='nvecs', conv=1e-3,
+        lambda_A=0, lambda_R=0, compute_fit='true'
+    )
+    S = similarity_ranking(A)
+    write_need_output(sys.argv[3] + "/outneed.txt", S, entities)
+
+
 
 
 
