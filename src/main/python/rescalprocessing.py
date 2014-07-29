@@ -17,6 +17,7 @@ from rescal import rescal_als
 from sklearn import datasets
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
+from scipy.io import mmwrite
 
 def predict_rescal_als(A, R):
     n = A.shape[0]
@@ -91,10 +92,27 @@ def write_need_output(file, similarity_matrix, entities):
     out = open(file, 'w+')
     for line in range(0, len(entities)):
         if (entities[line].startswith('Need:')):
-            indices = (np.argsort(similarity_matrix[line,:]))[:10]
-            predicted_entities = [entities[i] + " (" + str(round(similarity_matrix[line,i], 4)) + ")" for i in indices if entities[
+            indices = (np.argsort(similarity_matrix[line,:]))[:50]
+            predicted_entities = [entities[i][6:] + " (" + str(round(similarity_matrix[line,i], 4)) + ")" for i in indices if entities[
                 i].startswith('Need:') and i != line]
-            out.write(entities[line] + '\n' + '\n'.join(predicted_entities) + '\n\n')
+            out.write(entities[line][6:] + '\n' + '\n'.join(predicted_entities) + '\n\n')
+
+def createOutputSliceWithThreshold(input_tensor, entities, P, slice, threshold):
+    dim = len(P[:,0,slice])
+    out = csr_matrix((dim, dim))
+    temp = input_tensor[slice].todense() #zeros((dim,dim))
+    wantIndex = entities.index("Attr: WANT")
+    wantVector = input_tensor[1].getcol(wantIndex).todense()
+
+    for x in range(0, dim):
+        for y in range(0, dim):
+            if (P[x, y, slice] > threshold and x != y and isNeed(x, entities) and isNeed(y, entities) and wantVector[
+                x] != wantVector[y]):
+                temp[x,y] = 1.0
+    return csr_matrix(temp)
+
+def isNeed(index, entities):
+    return entities[index].startswith('Need:')
 
 
 if __name__ == '__main__':
@@ -114,20 +132,29 @@ if __name__ == '__main__':
         lambda_A=0, lambda_R=0, compute_fit='true'
     )
     P = predict_rescal_als(A, R)
+    #normalize_predictions(P, P.shape[0], P.shape[2])
 
     # topic attributes (terms) are saved in slice 2
     write_term_output(sys.argv[3] + "/outterm.txt", P, 2, entities)
 
     # connections are saved in slice 0
     write_connection_output(sys.argv[3] + "/outconn.txt", K, P, 0, entities)
+    mmwrite(sys.argv[3] + "/incon.mtx", K[0])
+    mmwrite(sys.argv[3] + "/needtype.mtx", K[1])
+
+    _log.info('Writing output file: ' + sys.argv[3] + "/outcon.mtx")
+    newcon = createOutputSliceWithThreshold(K, entities, P, 0, 0.2)
+    mmwrite(sys.argv[3] + "/outcon.mtx", newcon)
+
 
     # need similarity - use slices connection and attributes, not classification (slice 1)
     A, R, _, _, _ = rescal_als(
-        [K[0],K[2]], rank, init='nvecs', conv=1e-3,
+        [K[2]], rank, init='nvecs', conv=1e-3,
         lambda_A=0, lambda_R=0, compute_fit='true'
     )
     S = similarity_ranking(A)
     write_need_output(sys.argv[3] + "/outneed.txt", S, entities)
+
 
 
 

@@ -159,20 +159,20 @@ public class GateRESCALProcessing
         // add a connection between the first need and all following needs until empty line
         for (int i = 1; i < needs.size(); i++) {
           if (!matchingData.getNeeds().contains(needs.get(0)) || !matchingData.getNeeds().contains(needs.get(i))) {
-            logger.warn("add connection between new needs");
+            logger.warn("add connection between new needs: \n{} \n{}", needs.get(0), needs.get(i));
           }
           matchingData.addNeedConnection(needs.get(0), needs.get(i));
         }
         needs = new LinkedList<String>();
       } else {
-        needs.add(line);
+        needs.add(line.trim());
       }
     }
 
     // add a connection between the first need and all following needs until empty line
     for (int i = 1; i < needs.size(); i++) {
       if (!matchingData.getNeeds().contains(needs.get(0)) || !matchingData.getNeeds().contains(needs.get(i))) {
-        logger.warn("add connection between new needs");
+        logger.warn("add connection between new needs: \n{} \n{}", needs.get(0), needs.get(i));
       }
       matchingData.addNeedConnection(needs.get(0), needs.get(i));
     }

@@ -112,8 +112,8 @@ public class MailGateProcessing
         if (parser.hasPlainContent()) {
           content = parser.getPlainContent();
         } else {
-          logger.warn("no plain content in file: {}", file);
-          continue;
+          logger.warn("no plain content in file: {}, use HTML content", file);
+          content = parser.getHtmlContent();
         }
 
         File outfile = new File(outputFolder + "/" + file.getName());
