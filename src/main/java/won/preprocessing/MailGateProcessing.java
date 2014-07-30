@@ -58,7 +58,7 @@ public class MailGateProcessing
       MailGateProcessing.preprocessMails(args[0], args[1]);
       Corpus corpus = MailGateProcessing.processFilesWithGate(GATE_APP_PATH, args[1]);
       // saveXMLDocumentAnnotations(corpus, args[1] + "/xml");
-      GateRESCALProcessing rescal = new GateRESCALProcessing();
+      GateRESCALProcessing rescal = new GateRESCALProcessing(args[1]);
       rescal.addDataFromProcessedCorpus(corpus);
       rescal.addConnectionData(args[1] + "/rescal/connections.txt");
       rescal.createRescalData(args[1] + "/rescal");
@@ -67,6 +67,12 @@ public class MailGateProcessing
     } catch (GateException e) {
       logger.error(e.getMessage(), e);
     }
+  }
+
+  public static String cleanFileName(String filename) {
+    String result = filename.replaceAll("[+?]","");
+    result = result.replaceAll("\\p{C}", "");
+    return result;
   }
 
   /**
@@ -116,7 +122,7 @@ public class MailGateProcessing
           content = parser.getHtmlContent();
         }
 
-        File outfile = new File(outputFolder + "/" + file.getName());
+        File outfile = new File(outputFolder + "/" + cleanFileName(file.getName()));
         logger.debug("writing output file: {}", outfile.getAbsolutePath());
         logger.debug("- mail subject: {}", parser.getSubject());
         fw = new FileWriter(outfile);

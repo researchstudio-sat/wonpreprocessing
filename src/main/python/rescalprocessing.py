@@ -143,7 +143,7 @@ if __name__ == '__main__':
     mmwrite(sys.argv[3] + "/needtype.mtx", K[1])
 
     _log.info('Writing output file: ' + sys.argv[3] + "/outcon.mtx")
-    newcon = createOutputSliceWithThreshold(K, entities, P, 0, 0.2)
+    newcon = createOutputSliceWithThreshold(K, entities, P, 0, 0.05)
     mmwrite(sys.argv[3] + "/outcon.mtx", newcon)
 
 

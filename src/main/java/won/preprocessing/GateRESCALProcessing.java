@@ -27,6 +27,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -71,11 +72,14 @@ public class GateRESCALProcessing
     }
   }
 
+  private String baseFolder;
   private WonMatchingData matchingData;
 
-  public GateRESCALProcessing() {
+  public GateRESCALProcessing(String baseFolder) {
     matchingData = new WonMatchingData();
+    this.baseFolder = baseFolder;
   }
+
 
   /**
    * Add a Gate-processed corpus to the class to generate output of it later by {@link #createRescalData(String)}.
@@ -155,31 +159,29 @@ public class GateRESCALProcessing
 
     while ((line = reader.readLine()) != null) {
       if (line.length() == 0) {
-
         // add a connection between the first need and all following needs until empty line
-        for (int i = 1; i < needs.size(); i++) {
-          if (!matchingData.getNeeds().contains(needs.get(0)) || !matchingData.getNeeds().contains(needs.get(i))) {
-            logger.warn("add connection between new needs: \n{} \n{}", needs.get(0), needs.get(i));
-          }
-          matchingData.addNeedConnection(needs.get(0), needs.get(i));
-        }
+        addConnection(needs);
         needs = new LinkedList<String>();
       } else {
         needs.add(line.trim());
       }
     }
-
-    // add a connection between the first need and all following needs until empty line
-    for (int i = 1; i < needs.size(); i++) {
-      if (!matchingData.getNeeds().contains(needs.get(0)) || !matchingData.getNeeds().contains(needs.get(i))) {
-        logger.warn("add connection between new needs: \n{} \n{}", needs.get(0), needs.get(i));
-      }
-      matchingData.addNeedConnection(needs.get(0), needs.get(i));
-    }
+    addConnection(needs);
   }
 
   private String createNeedId(Document doc) throws UnsupportedEncodingException {
     return java.net.URLDecoder.decode(FilenameUtils.getBaseName(doc.getSourceUrl().getFile()), "UTF-8");
+  }
+
+  private void addConnection(List<String> needs) throws MalformedURLException {
+    for (int i = 1; i < needs.size(); i++) {
+      String need1 = MailGateProcessing.cleanFileName(needs.get(0));
+      String need2 = MailGateProcessing.cleanFileName(needs.get(i));
+      if (!matchingData.getNeeds().contains(need1) || !matchingData.getNeeds().contains(need2)) {
+        logger.warn("add connection between new needs: \n{} \n{}", need1, need2);
+      }
+      matchingData.addNeedConnection(need1, need2);
+    }
   }
 
   /**
