@@ -5,9 +5,6 @@
       <gate.util.persistence.PersistenceManager-URLHolder>
         <urlString>$relpath$plugins/ANNIE/</urlString>
       </gate.util.persistence.PersistenceManager-URLHolder>
-      <gate.util.persistence.PersistenceManager-URLHolder>
-        <urlString>$relpath$plugins/Stemmer_Snowball/</urlString>
-      </gate.util.persistence.PersistenceManager-URLHolder>
     </localList>
     <collectionType>java.util.ArrayList</collectionType>
   </urlList>
@@ -141,14 +138,14 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
+                <string>caseSensitive</string>
+                <boolean>false</boolean>
+              </entry>
+              <entry>
                 <string>listsURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
                   <urlString>$relpath$application-resources/mailgazetteer/lists.def</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
-              </entry>
-              <entry>
-                <string>caseSensitive</string>
-                <boolean>false</boolean>
               </entry>
               <entry>
                 <string>gazetteerFeatureSeparator</string>
@@ -174,15 +171,15 @@
                 <null />
               </entry>
               <entry>
+                <string>inputASName</string>
+                <null />
+              </entry>
+              <entry>
                 <string>document</string>
                 <null />
               </entry>
               <entry>
                 <string>corpus</string>
-                <null />
-              </entry>
-              <entry>
-                <string>inputASName</string>
                 <null />
               </entry>
             </localMap>
