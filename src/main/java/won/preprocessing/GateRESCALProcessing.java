@@ -16,17 +16,16 @@
 
 package won.preprocessing;
 
-import gate.Annotation;
-import gate.Corpus;
-import gate.Document;
+import gate.*;
+import gate.creole.ExecutionException;
+import gate.creole.ResourceInstantiationException;
+import gate.util.GateException;
+import gate.util.persistence.PersistenceManager;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -36,7 +35,7 @@ import java.util.List;
  * User: hfriedrich
  * Date: 01.07.2014
  *
- * Create data (binary tensor) for the RESCAL algorithm from a corpus of text files.
+ * Create data (binary tensor) for the RESCAL algorithm from a corpus of text files that are processed by Gate.
  */
 public class GateRESCALProcessing
 {
@@ -74,12 +73,73 @@ public class GateRESCALProcessing
 
   private String baseFolder;
   private WonMatchingData matchingData;
+  private CorpusController gateApplication;
 
-  public GateRESCALProcessing(String baseFolder) {
+  public GateRESCALProcessing(String gateAppPath, String baseFolder) throws GateException, IOException {
     matchingData = new WonMatchingData();
     this.baseFolder = baseFolder;
+
+    // init Gate
+    logger.info("Initialising Gate");
+    Gate.init();
+
+    // load Gate application
+    logger.info("Loading Gate application: {}", gateAppPath);
+    gateApplication = (CorpusController)
+      PersistenceManager.loadObjectFromFile(new File(gateAppPath));
   }
 
+  /**
+   * After the mails have been preprocessed the Gate processing and tensor creation is executed by the gate
+   * application.
+   *
+   * @param corpusFolder corpus document input folder
+   * @throws gate.util.GateException
+   * @throws MalformedURLException
+   */
+  public void processFilesWithGate(String corpusFolder)
+    throws IOException, ResourceInstantiationException, ExecutionException {
+
+    int maxFilesPerCorpus = 1000;
+    int processedFiles = 0;
+
+    logger.info("Gate processing and tensor creation of files from folder: {}", corpusFolder);
+    File folder = new File(corpusFolder);
+
+    for (int bulk = 0; bulk < folder.listFiles().length; bulk += maxFilesPerCorpus) {
+      Corpus corpus = Factory.newCorpus("Transient Gate Corpus");
+      for (int i = bulk; i < maxFilesPerCorpus + bulk && i < folder.listFiles().length; i++) {
+        File file = folder.listFiles()[i];
+        if (!file.isDirectory()) {
+          corpus.add(Factory.newDocument(file.toURI().toURL()));
+        }
+      }
+      gateApplication.setCorpus(corpus);
+      gateApplication.execute();
+      addDataFromProcessedCorpus(corpus);
+      processedFiles += corpus.size();
+      logger.info("{} files processed ...", processedFiles);
+    }
+  }
+
+  private static void saveXMLDocumentAnnotations(Corpus corpus, String folder) throws IOException {
+
+    logger.info("Saving XML gate annotation files to folder: {}", folder);
+    File outFolder = new File(folder);
+    outFolder.mkdirs();
+    Iterator documentIterator = corpus.iterator();
+    while(documentIterator.hasNext()) {
+      Document currDoc = (Document) documentIterator.next();
+      String xmlDocument = currDoc.toXml();
+      String fileName = java.net.URLDecoder.decode(FilenameUtils.getBaseName(currDoc.getSourceUrl().getFile()),
+                                                   "UTF-8");
+      String path = new String(folder + "/" + fileName + ".xml");
+      logger.debug("Saving XML gate annotation file: {}", path);
+      FileWriter writer = new FileWriter(path);
+      writer.write(xmlDocument);
+      writer.close();
+    }
+  }
 
   /**
    * Add a Gate-processed corpus to the class to generate output of it later by {@link #createRescalData(String)}.
@@ -88,7 +148,7 @@ public class GateRESCALProcessing
    *
    * @param corpus
    */
-  public void addDataFromProcessedCorpus(Corpus corpus) throws UnsupportedEncodingException {
+  private void addDataFromProcessedCorpus(Corpus corpus) throws UnsupportedEncodingException {
     Iterator documentIterator = corpus.iterator();
     while (documentIterator.hasNext()) {
       Document currDoc = (Document) documentIterator.next();
@@ -175,8 +235,8 @@ public class GateRESCALProcessing
 
   private void addConnection(List<String> needs) throws MalformedURLException {
     for (int i = 1; i < needs.size(); i++) {
-      String need1 = MailGateProcessing.cleanFileName(needs.get(0));
-      String need2 = MailGateProcessing.cleanFileName(needs.get(i));
+      String need1 = MailProcessing.cleanFileName(needs.get(0));
+      String need2 = MailProcessing.cleanFileName(needs.get(i));
       if (!matchingData.getNeeds().contains(need1) || !matchingData.getNeeds().contains(need2)) {
         logger.warn("add connection between new needs: \n{} \n{}", need1, need2);
       }
