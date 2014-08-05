@@ -19,9 +19,7 @@ package won.preprocessing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -184,12 +182,14 @@ public class WonMatchingData
     tensor.writeToFile(new File(folder + "/" + DATA_FILE));
 
     // write the headers file
-    FileWriter fw = new FileWriter(new File(folder + "/" + HEADERS_FILE));
+    FileOutputStream fos = new FileOutputStream(new File(folder + "/" + HEADERS_FILE));
+    OutputStreamWriter os = new OutputStreamWriter(fos, "UTF-8");
+
     for (int i = 0; i < nextIndex; i++) {
       String entity = (needs.get(i) != null) ? NEED_PREFIX + needs.get(i) : ATTRIBUTE_PREFIX + attributes.get(i);
-      fw.append(entity + "\n");
+      os.append(entity + "\n");
     }
-    fw.close();
+    os.close();
 
     logger.info("- needs: {}", getNeeds().size());
     logger.info("- attributes: {}", getAttributes().size());
