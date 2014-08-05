@@ -8,16 +8,14 @@ import sys
 import numpy as np
 from numpy import dot, array, zeros, setdiff1d
 from numpy.linalg import norm
-from numpy.random import shuffle
 from scipy.io.matlab import loadmat
 from scipy.sparse import lil_matrix, csr_matrix
 from scipy import sparse
-from sklearn.metrics import precision_recall_curve, auc
 from rescal import rescal_als
-from sklearn import datasets
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 from scipy.io import mmwrite
+import codecs
 
 def predict_rescal_als(A, R):
     n = A.shape[0]
@@ -47,7 +45,8 @@ def read_input_tensor(data_file, header_file):
     mat = loadmat(data_file)
 
     _log.info("Read header input file: " + header_file)
-    input = open(header_file)
+
+    input = codecs.open(header_file,'r',encoding='utf8')
     headers = input.read().splitlines()
 
     K = []
@@ -61,7 +60,7 @@ def read_input_tensor(data_file, header_file):
 
 def write_term_output(file, P, slice, entities):
     _log.info('Writing output file: ' + file)
-    out = open(file, 'w+')
+    out = codecs.open(file, 'w+', encoding='utf8')
     for line in range(0, len(entities)):
         darr = np.array(P[line,:,slice])
         indices = (np.argsort(darr))[-20:]
@@ -72,7 +71,7 @@ def write_term_output(file, P, slice, entities):
 
 def write_connection_output(file, input_tensor, predicted_tensor, slice, entities):
     _log.info('Writing output file: ' + file)
-    out = open(file, 'w+')
+    out = codecs.open(file, 'w+', encoding='utf8')
     for line in range(0, len(entities)):
         if (entities[line].startswith('Need:')):
             darr = np.array(predicted_tensor[line,:,slice])
@@ -89,7 +88,7 @@ def write_connection_output(file, input_tensor, predicted_tensor, slice, entitie
 
 def write_need_output(file, similarity_matrix, entities):
     _log.info('Writing output file: ' + file)
-    out = open(file, 'w+')
+    out = codecs.open(file, 'w+', encoding='utf8')
     for line in range(0, len(entities)):
         if (entities[line].startswith('Need:')):
             indices = (np.argsort(similarity_matrix[line,:]))[:50]
