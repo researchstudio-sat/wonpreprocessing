@@ -16,10 +16,8 @@
 
 package won.preprocessing;
 
-import gate.*;
+import gate.Corpus;
 import gate.util.GateException;
-import gate.util.persistence.PersistenceManager;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.mail.util.MimeMessageParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,17 +28,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.util.Iterator;
 
 /**
  * Created by hfriedrich on 26.06.2014.
  *
- * Preprocess mail files using Gate to produce input for a matching algorithm.
+ * Preprocess mail files to produce input for the Gate processing and the matching algorithm.
  */
-public class MailGateProcessing
+public class MailProcessing
 {
-  private static final Logger logger = LoggerFactory.getLogger(MailGateProcessing.class);
+  private static final Logger logger = LoggerFactory.getLogger(MailProcessing.class);
   private static final String GATE_APP_PATH = "resources/gate/application.xgapp";
 
   private static final String FROM_PREFIX = "From: ";
@@ -49,19 +45,18 @@ public class MailGateProcessing
   private static final String SUBJECT_PREFIX = "Subject: ";
   private static final String CONTENT_PREFIX = "Content: ";
 
-
   public static void main(String[] args) {
 
     if (args.length < 2) {
       System.err.println("USAGE: java MailProcessing <input_directory> <output_directory>");
     } else try {
-      MailGateProcessing.preprocessMails(args[0], args[1]);
-      Corpus corpus = MailGateProcessing.processFilesWithGate(GATE_APP_PATH, args[1]);
-      // saveXMLDocumentAnnotations(corpus, args[1] + "/xml");
-      GateRESCALProcessing rescal = new GateRESCALProcessing(args[1]);
-      rescal.addDataFromProcessedCorpus(corpus);
+      MailProcessing.preprocessMails(args[0], args[1]);
+      GateRESCALProcessing rescal = new GateRESCALProcessing(GATE_APP_PATH, args[1]);
+      Corpus corpus = null;
+      rescal.processFilesWithGate(args[1]);
       rescal.addConnectionData(args[1] + "/rescal/connections.txt");
       rescal.createRescalData(args[1] + "/rescal");
+
     } catch (IOException e) {
       logger.error(e.getMessage(), e);
     } catch (GateException e) {
@@ -141,63 +136,6 @@ public class MailGateProcessing
         if (fis != null) fis.close();
         if (fw != null) fw.close();
       }
-    }
-  }
-
-  /**
-   * After the mails have been preprocessed by {@link #preprocessMails(String,
-   * String)} the Gate processing is executed by the gate application.
-   *
-   * @param gateAppPath Path to the gate application file
-   * @param corpusFolder corpus document input folder
-   * @throws GateException
-   * @throws MalformedURLException
-   */
-  private static Corpus processFilesWithGate(String gateAppPath, String corpusFolder) throws GateException,
-    IOException {
-
-    // init Gate
-    logger.info("Initialising Gate");
-    Gate.init();
-
-    // load Gate application
-    logger.info("Loading Gate application: {}", gateAppPath);
-    CorpusController app = (CorpusController)
-      PersistenceManager.loadObjectFromFile(new File(gateAppPath));
-
-    // add files to a corpus
-    File folder = new File(corpusFolder);
-    Corpus corpus = Factory.newCorpus("Transient Gate Corpus");
-    for (File file :folder.listFiles()) {
-      if (!file.isDirectory()) {
-        corpus.add(Factory.newDocument(file.toURI().toURL()));
-      }
-    }
-    app.setCorpus(corpus);
-
-    // process the documents using Gate
-    logger.info("processing files with gate in folder: {}", folder);
-    app.execute();
-
-    return corpus;
-  }
-
-  private static void saveXMLDocumentAnnotations(Corpus corpus, String folder) throws IOException {
-
-    logger.info("Saving XML gate annotation files to folder: {}", folder);
-    File outFolder = new File(folder);
-    outFolder.mkdirs();
-    Iterator documentIterator = corpus.iterator();
-    while(documentIterator.hasNext()) {
-      Document currDoc = (Document) documentIterator.next();
-      String xmlDocument = currDoc.toXml();
-      String fileName = java.net.URLDecoder.decode(FilenameUtils.getBaseName(currDoc.getSourceUrl().getFile()),
-                                                   "UTF-8");
-      String path = new String(folder + "/" + fileName + ".xml");
-      logger.debug("Saving XML gate annotation file: {}", path);
-      FileWriter writer = new FileWriter(path);
-      writer.write(xmlDocument);
-      writer.close();
     }
   }
 
