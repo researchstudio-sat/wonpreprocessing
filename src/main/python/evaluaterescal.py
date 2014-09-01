@@ -47,41 +47,43 @@ def read_input_tensor(data_file, header_file):
         K.append(sparse.csr_matrix((V,(I,J)),G.shape))
     return K, headers
 
-def connection_indices(tensor):
-    nz = tensor[0].nonzero()
+def connection_indices(connection_slice):
+    nz = connection_slice.nonzero()
     nz0 = [nz[0][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
     nz1 = [nz[1][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
-    nzsym = (nz0, nz1)
+    indices = [i for i in range(len(nz0))]
+    shuffle(indices)
+    ret0 = [nz0[i] for i in indices]
+    ret1 = [nz1[i] for i in indices]
+    nzsym = (ret0, ret1)
     return nzsym
 
 def need_indices(headers):
     needs = [i for i in range(0, len(headers)) if (headers[i].startswith('Need:'))]
     return needs
 
-def fullrow_need_connection_indices(tensor, need_indices, row):
-    toneeds = need_indices
-    fromneeds = [row for _ in range(len(toneeds))]
-    fullNeedConnectionIndices = (fromneeds, toneeds)
-    return fullNeedConnectionIndices
-
-def need_connection_indices(tensor, all_need_indices, test_need_indices):
+def need_connection_indices(all_need_indices, test_need_indices):
     allindices = ([],[])
-    for row in test_need_indices:
-        rowindices = fullrow_need_connection_indices(tensor, all_need_indices, row)
-        allindices[0].extend(rowindices[0])
-        allindices[1].extend(rowindices[1])
+    for row in test_need_indices[0]:
+        fromneeds = [row for _ in range(len(all_need_indices))]
+        toneeds = all_need_indices
+        allindices[0].extend(fromneeds)
+        allindices[1].extend(toneeds)
     return allindices
 
-def randomconnection_indices(tensor, numIndices):
-    i0 = [random.randint(0,tensor[0].shape[0]-1) for _ in range(numIndices)]
-    i1 = [random.randint(0,tensor[0].shape[0]-1) for _ in range(numIndices)]
-    return (i0,i1)
-
 def mask_connection(tensor, mask):
+    Tc = [slice.copy() for slice in tensor]
     for i in range(len(mask[0])):
-        tensor[0][mask[0][i], mask[1][i]] = 0
-        tensor[0][mask[1][i], mask[0][i]] = 0
-    return tensor
+        Tc[0][mask[0][i], mask[1][i]] = 0
+        Tc[0][mask[1][i], mask[0][i]] = 0
+    return Tc
+
+def mask_all_connections_of_need(tensor, need):
+    Tc = [slice.copy() for slice in tensor]
+    for i in range(len(Tc[0])):
+            Tc[0][i, need] = 0
+            Tc[0][need, i] = 0
+    return Tc
 
 def normalize_predictions(P, mask, k):
     for i in range(len(mask[0])):
@@ -95,59 +97,76 @@ def normalize_predictions(P, mask, k):
 if __name__ == '__main__':
 
     # load the tensor input data
-    K, entities = read_input_tensor(sys.argv[1], sys.argv[2])
+    input_tensor, entities = read_input_tensor(sys.argv[1], sys.argv[2])
+    GROUND_TRUTH = input_tensor[0]
 
-    GROUND_TRUTH = K[0].toarray()
-
-    nz = connection_indices(K)
-    nz0 = list(set(nz[0]))
-    shuffle(nz0)
-    nz0 = nz0[0:len(nz0)/10]
-
+    # 10-fold cross validation
+    FOLDS = 10
+    offset = 0
+    connectionIndices = connection_indices(GROUND_TRUTH)
     need_indices = need_indices(entities)
-    ind = need_connection_indices(K, need_indices, nz0)
+    foldSize = int(len(connectionIndices[0]) / FOLDS)
+    _log.info('Starting %d-fold cross validation' % FOLDS)
+    _log.info('Number of connections: %d' % len(connectionIndices[0]))
+    _log.info('Fold size: %d' % foldSize)
+    for f in range(FOLDS):
 
-    _log.info("number of needs with connections: " + str(len(ind[0]) / len(need_indices)))
-    #K = mask_connection(K, nz)
+        _log.info('Fold %d:' % f)
 
-    rank = 100
-    _log.info('start processing ...')
-    _log.info('Datasize: %d x %d x %d | Rank: %d' % (
-        K[0].shape + (len(K),) + (rank,))
-    )
+        # connection indices with entry 1 that get masked by 0
+        idx_con_test = (connectionIndices[0][offset:offset+foldSize],
+                    connectionIndices[1][offset:offset+foldSize])
 
-    # execute rescal algorithm
-    A, R, _, _, _ = rescal_als(
-        K, rank, init='nvecs', conv=1e-3,
-        lambda_A=0, lambda_R=0, compute_fit='true'
-    )
-    P = predict_rescal_als(A, R)
+        # train connection indices that stay 1
+        idx_con_train = (connectionIndices[0][:offset] +
+                         connectionIndices[0][offset+foldSize:],
+                         connectionIndices[1][:offset] +
+                         connectionIndices[1][offset+foldSize:])
 
-    _log.info("start normalizing ...")
-    #P = normalize_predictions(P, ind, P.shape[2])
+        # mask the test connection indices
+        test_tensor = mask_connection(input_tensor, idx_con_test)
+
+        # we do not only evaluate the connection indices with entry 1 but all
+        # connection indices (to all other needs) of that a need that had a connection index set to 1
+        idx_test = need_connection_indices(need_indices, idx_con_test)
+        idx_train = need_connection_indices(need_indices, idx_con_train)
+
+        # execute the rescal algorithm
+        rank = 100
+        _log.info('start rescal processing ...')
+        _log.info('Datasize: %d x %d x %d | Rank: %d' % (
+            test_tensor[0].shape + (len(test_tensor),) + (rank,))
+        )
+
+        A, R, _, _, _ = rescal_als(
+            test_tensor, rank, init='nvecs', conv=1e-3,
+            lambda_A=0, lambda_R=0, compute_fit='true'
+        )
+        P = predict_rescal_als(A, R)
+        #P = normalize_predictions(P, ind, P.shape[2])
+
+        # evaluate the predictions
+        prec, recall, thresholds = precision_recall_curve(GROUND_TRUTH.toarray()[idx_test], P[:,:,0][idx_test])
+        areaUnderCurve = auc(recall, prec)
+        _log.info('AUC: ' + str(areaUnderCurve))
+
+        optimal_threshold = 0.0
+        for i in range(len(thresholds)):
+            if prec[i] > 0.5:
+                optimal_threshold = thresholds[i]
+                _log.info('optimal threshold: ' + str(optimal_threshold))
+                _log.info('precision: ' + str(prec[i]))
+                _log.info('recall: ' + str(recall[i]))
+                break
+
+        binary_prediction = [0 if val <= optimal_threshold else 1 for val in P[:,:,0][idx_test]]
+
+        confusionmatrix = confusion_matrix(GROUND_TRUTH.toarray()[idx_test], binary_prediction, [1, 0])
+        _log.info('confusion matrix: ' + str(confusionmatrix))
+
+        offset += foldSize
 
 
-    _log.info("start precision_recall_curve ...")
-    prec, recall, thresholds = precision_recall_curve(GROUND_TRUTH[ind], P[:,:,0][ind])
-
-    auc = auc(recall, prec)
-    _log.info('AUC: ' + str(auc))
-
-
-    optimal_threshold = 0.0
-    for i in range(len(thresholds)):
-        if prec[i] > 0.5:
-            optimal_threshold = thresholds[i]
-            _log.info('optimal threshold: ' + str(optimal_threshold))
-            _log.info('precision: ' + str(prec[i]))
-            _log.info('recall: ' + str(recall[i]))
-            break
-
-    binary_prediction = [0 if val <= optimal_threshold else 1 for val in P[:,:,0][ind]]
-    #prec_score = precision_score(GROUND_TRUTH[ind], binary_prediction)
-    #recall_score = recall_score(GROUND_TRUTH[ind], binary_prediction)
-    confusionmatrix = confusion_matrix(GROUND_TRUTH[ind], binary_prediction, [1, 0])
-    _log.info('confusion matrix: ' + str(confusionmatrix))
 
 
 
