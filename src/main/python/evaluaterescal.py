@@ -7,17 +7,18 @@ logging.basicConfig(level=logging.INFO,
 _log = logging.getLogger('Mail Example')
 
 import sys
+import codecs
 import numpy as np
+import sklearn.metrics as m
 from numpy import dot, zeros
+from numpy.random import shuffle
 from scipy.io.matlab import loadmat
 from scipy.sparse import csr_matrix
 from scipy import sparse
-from rescal import rescal_als
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
-import codecs
-from sklearn.metrics import precision_recall_curve, auc, precision_score, recall_score, confusion_matrix, accuracy_score
-from numpy.random import shuffle
+from rescal import rescal_als
+
 
 # execute the rescal algorithm and return a prediction tensor
 def predict_rescal_als(input_tensor, rank):
@@ -54,6 +55,16 @@ def read_input_tensor(data_file, header_file):
 def need_indices(headers):
     needs = [i for i in range(0, len(headers)) if (headers[i].startswith('Need:'))]
     return needs
+
+# return a list of indices which refer to rows/columns of needs in the tensor that were checked manually for
+# connections to other needs.
+def manually_checked_needs(headers, connection_file):
+    file = codecs.open(connection_file,'r',encoding='utf8')
+    lines = file.read().splitlines()
+    checked_need_names = ["Need: " + lines[0]] + ["Need: " + lines[i] for i in range(1,len(lines))
+        if lines[i-1] == "" and lines[i] != ""]
+    checked_needs = [i for i in need_indices(headers) if headers[i] in checked_need_names]
+    return checked_needs
 
 # return a list of indices which refer to rows/columns of needs of type OFFER in the tensor
 def offer_indices(tensor, headers):
@@ -141,117 +152,165 @@ def predict_connections_by_threshold(P, threshold, all_offers, all_wants, test_n
     return binary_prediction
 
 # calculate several measures based on ground truth and prediction values
-def eval_report(y_true, y_pred):
-    precision = precision_score(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
-    recall = recall_score(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
-    accuracy = accuracy_score(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
-    confusionmatrix = confusion_matrix(GROUND_TRUTH.toarray()[idx_test], binary_prediction, [1, 0])
-    _log.info('accuracy: ' + str(accuracy))
-    _log.info('precision: ' + str(precision))
-    _log.info('recall: ' + str(recall))
+def eval_report(y_true, y_pred, f_beta=1):
+    precision, recall, fscore, _ = m.precision_recall_fscore_support(y_true, y_pred, f_beta, average='weighted')
+    accuracy = m.accuracy_score(y_true, y_pred)
+    confusionmatrix = m.confusion_matrix(y_true, y_pred, [1, 0])
+    _log.info('accuracy: %f' % accuracy)
+    _log.info('precision: %f' % precision)
+    _log.info('recall: %f' % recall)
+    _log.info('f%d-score: %f' % (f_beta, fscore))
     _log.info('confusion matrix: ' + str(confusionmatrix))
-    return precision, recall, accuracy
+    return precision, recall, accuracy, fscore
+
+# calculate the optimal threshold by maximizing the f-score measure
+def get_optimal_threshold(y_true, prediction, f_beta=1):
+    prediction = np.round_(prediction, decimals=5)
+    prec, recall, thresholds = m.precision_recall_curve(y_true, prediction)
+    max_f_score = 0
+    optimal_threshold = 0.0
+    for i in range(len(thresholds)):
+        f_score = (1 + f_beta * f_beta) * (prec[i] * recall[i]) / (f_beta * f_beta * prec[i] + recall[i])
+        if f_score > max_f_score:
+            max_f_score = f_score
+            optimal_threshold = thresholds[i]
+    return optimal_threshold
+
+# class to collect data during the runs of the test and print calculated measures for summary
+class EvaluationReport:
+
+    def __init__(self, f_beta=1):
+        self.f_beta = f_beta
+        self.precision = []
+        self.recall = []
+        self.accuracy = []
+        self.fscore = []
+
+    def add_evaluation_data(self, y_true, y_pred):
+        p, r, f, _ =  m.precision_recall_fscore_support(y_true, y_pred, average='weighted')
+        a = m.accuracy_score(y_true, y_pred)
+        cm = m.confusion_matrix(y_true, y_pred, [1, 0])
+        self.precision.append(p)
+        self.recall.append(r)
+        self.fscore.append(f)
+        self.accuracy.append(a)
+        _log.info('accuracy: %f' % a)
+        _log.info('precision: %f' % p)
+        _log.info('recall: %f' % r)
+        _log.info('f%d-score: %f' % (self.f_beta, f))
+        _log.info('confusion matrix: ' + str(cm))
+
+    def summary(self):
+        a = np.array(self.accuracy)
+        p = np.array(self.precision)
+        r = np.array(self.recall)
+        f = np.array(self.fscore)
+        _log.info('Accuracy Mean / Std: %f / %f' % (a.mean(), a.std()))
+        _log.info('Precision Mean / Std: %f / %f' % (p.mean(), p.std()))
+        _log.info('Recall Mean / Std: %f / %f' % (r.mean(), r.std()))
+        _log.info('F%d-Score Mean / Std: %f / %f' % (self.f_beta, f.mean(), f.std()))
 
 
+# This program executes a N-fold cross validation on rescal tensor data.
+# For each fold test needs are randomly chosen and all their connections to
+# all other needs are masked by 0 in the tensor. Then rescal is executed and
+# measures are taken that describe the recovery of these masked connection entries.
+# Three different approaches for connection prediction between needs are tested.
+# 1) choose a fixed threshold by taking the maximum fscore measure and take
+#    every connection that exceeds this threshold
+# 2) take the top X highest rated connections as a prediction per need
+#    (only match offers with wants)
+# 3) take the top X most similar needs to the test need for connection prediction
+#    (only match offers with wants)
+#
+# Input parameters:
+# argv[1]: tensor matrix
+# argv[2]: headers file
+# argv[3]: connections file
 if __name__ == '__main__':
 
     # load the tensor input data
     input_tensor, headers = read_input_tensor(sys.argv[1], sys.argv[2])
+    checked_needs = manually_checked_needs(headers, sys.argv[3])
     GROUND_TRUTH = input_tensor[0]
-
-    # first compute a threshold to work with
-    TARGET_PRECISION = 0.1
-    optimal_threshold = 0.0
-    P,_,_ = predict_rescal_als(input_tensor, 100)
-    prec, recall, thresholds = precision_recall_curve(np.ravel(GROUND_TRUTH.toarray()), np.ravel(P[:,:,0]))
-    for i in range(len(thresholds)):
-        if prec[i] > TARGET_PRECISION:
-            optimal_threshold = thresholds[i]
-            break
-    _log.info('choose threshold ' + str(optimal_threshold) + ' for target precision ' + str(TARGET_PRECISION))
+    RANK = 100
 
     # 10-fold cross validation
     FOLDS = 10
+    F_BETA = 2
+    TOPX = 10
     offset = 0
-    needs = need_indices(headers)
+    _log.info('Use only needs for this test that were manually checked for connections')
+    needs = checked_needs #need_indices(headers)
     offers = offer_indices(input_tensor, headers)
     wants = want_indices(input_tensor, headers)
     shuffle(needs)
     fold_size = int(len(needs) / FOLDS)
-
     AUC_test = zeros(FOLDS)
-    precision_threshold = zeros(FOLDS)
-    recall_threshold = zeros(FOLDS)
-    accuracy_threshold = zeros(FOLDS)
-    topX = 10
-    precision_topX = zeros(FOLDS)
-    recall_topX = zeros(FOLDS)
-    accuracy_topX = zeros(FOLDS)
-    precision_sim = zeros(FOLDS)
-    recall_sim = zeros(FOLDS)
-    accuracy_sim = zeros(FOLDS)
+    report1 = EvaluationReport(F_BETA)
+    report2 = EvaluationReport(F_BETA)
+    report3 = EvaluationReport(F_BETA)
 
     _log.info('Starting %d-fold cross validation' % FOLDS)
     _log.info('Number of needs: %d' % len(needs))
     _log.info('Fold size: %d' % fold_size)
     for f in range(FOLDS):
 
+        _log.info('------------------------------')
         _log.info('Fold %d:' % f)
+        _log.info('------------------------------')
 
-        # define test and training set of needs
+        # define test set of needs
         test_needs = needs[offset:offset+fold_size]
         test_tensor = mask_need_connections(input_tensor, test_needs)
         idx_test = need_connection_indices(needs, test_needs)
 
         # execute the rescal algorithm
-        P, A, R = predict_rescal_als(test_tensor, 100)
+        P, A, R = predict_rescal_als(test_tensor, RANK)
+
+        if f == 0:
+            optimal_threshold = get_optimal_threshold(
+                np.ravel(GROUND_TRUTH.toarray()[idx_test]),
+                np.ravel(P[:,:,0][idx_test]), F_BETA)
+            _log.info('choose threshold ' + str(optimal_threshold) +
+                      ' (maximum F' + str(F_BETA) + '-score of first fold)')
 
         # evaluate the predictions
-        prec, recall, thresholds = precision_recall_curve(GROUND_TRUTH.toarray()[idx_test], P[:,:,0][idx_test])
-        AUC_test[f] = auc(recall, prec)
+        prec, recall, thresholds = m.precision_recall_curve(GROUND_TRUTH.toarray()[idx_test], P[:,:,0][idx_test])
+        AUC_test[f] = m.auc(recall, prec)
         _log.info('AUC test: ' + str(AUC_test[f]))
 
         # first use a fixed threshold to compute several measures
-        _log.info('For threshold: ' + str(optimal_threshold))
+        _log.info('For threshold %f (max f%d-score):' % (optimal_threshold, F_BETA))
         P_bin = predict_connections_by_threshold(P, optimal_threshold, offers, wants, test_needs)
         binary_prediction = P_bin[:,:,0][idx_test]
-        precision_threshold[f], recall_threshold[f], accuracy_threshold[f] = \
-            eval_report(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
+        report1.add_evaluation_data(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
 
         # second use the 10 highest rated connections for every need to other needs
-        _log.info('For prediction of %d top rated connections per need: ' % topX)
-        P_bin = predict_connections_per_need(P, offers, wants, test_needs, topX)
+        _log.info('For prediction of %d top rated connections per need: ' % TOPX)
+        P_bin = predict_connections_per_need(P, offers, wants, test_needs, TOPX)
         binary_prediction = P_bin[:,:,0][idx_test]
-        precision_topX[f], recall_topX[f], accuracy_topX[f] = \
-            eval_report(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
+        report2.add_evaluation_data(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
 
         # third use the 10 most similar needs per need to predict connections
-        _log.info('For prediction of %d top rated connections based on need similarity: ' % topX)
-        P_bin = predict_connections_by_need_similarity(A, offers, wants, test_needs, topX)
+        _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
+        P_bin = predict_connections_by_need_similarity(A, offers, wants, test_needs, TOPX)
         binary_prediction = P_bin[:,:,0][idx_test]
-        precision_sim[f], recall_sim[f], accuracy_sim[f] = \
-            eval_report(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
+        report3.add_evaluation_data(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
 
         offset += fold_size
 
     _log.info('====================================================')
     _log.info('AUC-PR Test Mean / Std: %f / %f' % (AUC_test.mean(), AUC_test.std()))
     _log.info('----------------------------------------------------')
-    _log.info('For threshold: ' + str(optimal_threshold))
-    _log.info('Accuracy Mean / Std: %f / %f' % (accuracy_threshold.mean(), accuracy_threshold.std()))
-    _log.info('Precision Mean / Std: %f / %f' % (precision_threshold.mean(), precision_threshold.std()))
-    _log.info('Recall Mean / Std: %f / %f' % (recall_threshold.mean(), recall_threshold.std()))
+    _log.info('For threshold %f (max f%d-score):' % (optimal_threshold, F_BETA))
+    report1.summary()
     _log.info('----------------------------------------------------')
-    _log.info('For prediction of %d top rated connections per need: ' % topX)
-    _log.info('Accuracy Mean / Std: %f / %f' % (accuracy_topX.mean(), accuracy_topX.std()))
-    _log.info('Precision Mean / Std: %f / %f' % (precision_topX.mean(), precision_topX.std()))
-    _log.info('Recall Mean / Std: %f / %f' % (recall_topX.mean(), recall_topX.std()))
+    _log.info('For prediction of %d top rated connections per need: ' % TOPX)
+    report2.summary()
     _log.info('----------------------------------------------------')
-    _log.info('For prediction of %d top rated connections based on need similarity: ' % topX)
-    _log.info('Accuracy Mean / Std: %f / %f' % (accuracy_sim.mean(), accuracy_sim.std()))
-    _log.info('Precision Mean / Std: %f / %f' % (precision_sim.mean(), precision_sim.std()))
-    _log.info('Recall Mean / Std: %f / %f' % (recall_sim.mean(), recall_sim.std()))
-
+    _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
+    report3.summary()
 
 
 
