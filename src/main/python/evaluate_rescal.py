@@ -49,6 +49,7 @@ def read_input_tensor(data_file, header_file):
         I,J = G.nonzero()
         V = G.data
         K.append(sparse.csr_matrix((V,(I,J)),G.shape))
+    input.close()
     return K, headers
 
 # return a tiple with two lists holding need indices that represent connections
@@ -78,6 +79,7 @@ def manually_checked_needs(headers, connection_file):
     checked_need_names = ["Need: " + lines[0]] + ["Need: " + lines[i] for i in range(1,len(lines))
         if lines[i-1] == "" and lines[i] != ""]
     checked_needs = [i for i in need_indices(headers) if headers[i] in checked_need_names]
+    file.close()
     return checked_needs
 
 # return a list of indices which refer to rows/columns of needs of type OFFER in the tensor
@@ -141,6 +143,7 @@ def predict_connections_per_need(P, all_offers, all_wants, test_needs, num_predi
             binary_prediction[need, x, 0] = 1
     return binary_prediction
 
+# create a similarity matrix of needs (and attributes)
 def similarity_ranking(A):
     dist = squareform(pdist(A, metric='cosine'))
     return dist
