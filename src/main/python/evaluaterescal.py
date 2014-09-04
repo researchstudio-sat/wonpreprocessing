@@ -51,6 +51,19 @@ def read_input_tensor(data_file, header_file):
         K.append(sparse.csr_matrix((V,(I,J)),G.shape))
     return K, headers
 
+# return a tiple with two lists holding need indices that represent connections
+# between these needs
+def connection_indices(tensor):
+    nz = tensor[0].nonzero()
+    nz0 = [nz[0][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
+    nz1 = [nz[1][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
+    indices = [i for i in range(len(nz0))]
+    shuffle(indices)
+    ret0 = [nz0[i] for i in indices]
+    ret1 = [nz1[i] for i in indices]
+    nzsym = (ret0, ret1)
+    return nzsym
+
 # return a list of indices which refer to rows/columns of needs in the tensor
 def need_indices(headers):
     needs = [i for i in range(0, len(headers)) if (headers[i].startswith('Need:'))]
@@ -59,6 +72,7 @@ def need_indices(headers):
 # return a list of indices which refer to rows/columns of needs in the tensor that were checked manually for
 # connections to other needs.
 def manually_checked_needs(headers, connection_file):
+    _log.info("Read connections input file: " + connection_file)
     file = codecs.open(connection_file,'r',encoding='utf8')
     lines = file.read().splitlines()
     checked_need_names = ["Need: " + lines[0]] + ["Need: " + lines[i] for i in range(1,len(lines))
@@ -96,6 +110,18 @@ def mask_need_connections(tensor, needs):
     for need in needs:
         slices[0][need,:] = zeros(tensor[0].shape[0])
         slices[0][:,need] = zeros(tensor[0].shape[0])
+    Tc = [csr_matrix(slice) for slice in slices]
+    return Tc
+
+# mask all connections but a number of X for each need
+def mask_all_but_X_connections_per_need(tensor, keep_x):
+    slices = [slice.copy().toarray() for slice in tensor]
+    for row in set(tensor[0].nonzero()[0]):
+        mask_idx = [col for col in range(len(slices[0][row,:])) if slices[0][row,col] == 1.0]
+        shuffle(mask_idx)
+        for col in mask_idx[keep_x:]:
+            slices[0][row,col] = 0
+            slices[0][col,row] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
@@ -170,10 +196,14 @@ def get_optimal_threshold(y_true, prediction, f_beta=1):
     max_f_score = 0
     optimal_threshold = 0.0
     for i in range(len(thresholds)):
-        f_score = (1 + f_beta * f_beta) * (prec[i] * recall[i]) / (f_beta * f_beta * prec[i] + recall[i])
-        if f_score > max_f_score:
-            max_f_score = f_score
-            optimal_threshold = thresholds[i]
+        r = recall[i]
+        p = prec[i]
+        div = (f_beta * f_beta * p + r)
+        if div != 0:
+            f_score = (1 + f_beta * f_beta) * (p * r) / div
+            if f_score > max_f_score:
+                max_f_score = f_score
+                optimal_threshold = thresholds[i]
     return optimal_threshold
 
 # class to collect data during the runs of the test and print calculated measures for summary
@@ -224,24 +254,30 @@ class EvaluationReport:
 #    (only match offers with wants)
 #
 # Input parameters:
-# argv[1]: tensor matrix
-# argv[2]: headers file
-# argv[3]: connections file
+# argv[1]: tensor matrix data file name
+# argv[2]: headers file name
+# argv[3]: connections file name
 if __name__ == '__main__':
 
     # load the tensor input data
     input_tensor, headers = read_input_tensor(sys.argv[1], sys.argv[2])
     checked_needs = manually_checked_needs(headers, sys.argv[3])
-    GROUND_TRUTH = input_tensor[0]
-    RANK = 100
+    GROUND_TRUTH = input_tensor
 
     # 10-fold cross validation
     FOLDS = 10
+    RANK = 100
     F_BETA = 2
     TOPX = 10
     offset = 0
-    _log.info('Use only needs for this test that were manually checked for connections')
+    MAX_CONNECTIONS_PER_NEED = 100
+    _log.info('------------------------------')
+    _log.info('Test Setup:')
+    _log.info('------------------------------')
+    _log.info('For testing use only needs that were manually checked for connections')
     needs = checked_needs #need_indices(headers)
+    _log.info('For testing use a maximum number of %d connections per need' % MAX_CONNECTIONS_PER_NEED)
+    input_tensor = mask_all_but_X_connections_per_need(input_tensor, MAX_CONNECTIONS_PER_NEED)
     offers = offer_indices(input_tensor, headers)
     wants = want_indices(input_tensor, headers)
     shuffle(needs)
@@ -252,8 +288,14 @@ if __name__ == '__main__':
     report3 = EvaluationReport(F_BETA)
 
     _log.info('Starting %d-fold cross validation' % FOLDS)
-    _log.info('Number of needs: %d' % len(needs))
-    _log.info('Fold size: %d' % fold_size)
+    _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
+              (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
+    _log.info('Number of total needs: %d (OFFERS: %d, WANTS: %d)' %
+              (len(need_indices(headers)), len(offers), len(wants)))
+    _log.info('Number of test connections: %d' % len(connection_indices(input_tensor)[0]))
+    _log.info('Number of total connections: %d' % len(connection_indices(GROUND_TRUTH)[0]))
+    _log.info('Number of attributes: %d' % (input_tensor[0].shape[0] - len(need_indices(headers))))
+    _log.info('Fold size (needs): %d' % fold_size)
     for f in range(FOLDS):
 
         _log.info('------------------------------')
@@ -268,15 +310,16 @@ if __name__ == '__main__':
         # execute the rescal algorithm
         P, A, R = predict_rescal_als(test_tensor, RANK)
 
+        # in the first fold-run calculate a threshold to work with
         if f == 0:
             optimal_threshold = get_optimal_threshold(
-                np.ravel(GROUND_TRUTH.toarray()[idx_test]),
+                np.ravel(GROUND_TRUTH[0].toarray()[idx_test]),
                 np.ravel(P[:,:,0][idx_test]), F_BETA)
             _log.info('choose threshold ' + str(optimal_threshold) +
                       ' (maximum F' + str(F_BETA) + '-score of first fold)')
 
         # evaluate the predictions
-        prec, recall, thresholds = m.precision_recall_curve(GROUND_TRUTH.toarray()[idx_test], P[:,:,0][idx_test])
+        prec, recall, thresholds = m.precision_recall_curve(GROUND_TRUTH[0].toarray()[idx_test], P[:,:,0][idx_test])
         AUC_test[f] = m.auc(recall, prec)
         _log.info('AUC test: ' + str(AUC_test[f]))
 
@@ -284,19 +327,19 @@ if __name__ == '__main__':
         _log.info('For threshold %f (max f%d-score):' % (optimal_threshold, F_BETA))
         P_bin = predict_connections_by_threshold(P, optimal_threshold, offers, wants, test_needs)
         binary_prediction = P_bin[:,:,0][idx_test]
-        report1.add_evaluation_data(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
+        report1.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_prediction)
 
         # second use the 10 highest rated connections for every need to other needs
         _log.info('For prediction of %d top rated connections per need: ' % TOPX)
         P_bin = predict_connections_per_need(P, offers, wants, test_needs, TOPX)
         binary_prediction = P_bin[:,:,0][idx_test]
-        report2.add_evaluation_data(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
+        report2.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_prediction)
 
         # third use the 10 most similar needs per need to predict connections
         _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
         P_bin = predict_connections_by_need_similarity(A, offers, wants, test_needs, TOPX)
         binary_prediction = P_bin[:,:,0][idx_test]
-        report3.add_evaluation_data(GROUND_TRUTH.toarray()[idx_test], binary_prediction)
+        report3.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_prediction)
 
         offset += fold_size
 
