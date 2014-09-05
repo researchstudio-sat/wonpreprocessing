@@ -1,50 +1,95 @@
 library("igraph")
 library("Matrix")
 
+# This script loads some the output of the rescal tensor processing by the python program 
+# "generate_rescal_output.py". It loads the data from the connection slice of the tensor
+# before and after execution of the rescal algorithm to compute graph measures based on
+# this data including graphics.
+
+# function to delete isolate nodes from the graph
 deleteIsolates <- function(x) {
   isolates <- which(degree(x) == 0)
   return (delete.vertices(x, isolates))
 }
 
-headers <- readLines("C:/dev/temp/testcorpus3/out/rescal/headers.txt")
-incon <- readMM("C:/dev/temp/testcorpus3/out/rescal/incon.mtx")
-outcon <- readMM("C:/dev/temp/testcorpus3/out/rescal/outcon.mtx")
-needtype <- readMM("C:/dev/temp/testcorpus3/out/rescal/needtype.mtx")
+# function to concat two strings
+concat <- function(s1, s2) {
+  return (paste(c(s1,s2), collapse=''))
+}
 
+# load the input data files
+# headers: headers of the tensor, need and attribute names
+# incon: input connection slice of the tensor to the rescal algorithm
+# outcon: output (predicted) connection slice of the rescal algorithm
+# needtype: need type slice of the tensor
+dataFolder <- "C:/dev/temp/testcorpus/complete/out/rescal/"
+headers <- readLines(concat(dataFolder,"headers.txt"))
+incon <- readMM(concat(dataFolder,"incon.mtx"))
+outcon <- readMM(concat(dataFolder,"outcon.mtx"))
+needtype <- readMM(concat(dataFolder,"needtype.mtx"))
+
+# create the graphs
 igraph.options(vertex.size=3, vertex.label=NA)
 g_incon <- graph.adjacency(incon, "undirected")
 g_outcon <- graph.union(graph.adjacency(outcon, "undirected"), g_incon)
 g_type <- graph.adjacency(needtype, "directed")
-
 indices <- which(headers != "")
 offerNodes <- get.edges(g_type, E(g_type)[to(which(headers=="Attr: OFFER"))])
 wantNodes <- get.edges(g_type, E(g_type)[to(which(headers=="Attr: WANT"))])
 types <- ifelse(is.element(indices, offerNodes), "OFFER", ifelse(is.element(indices, wantNodes), "WANT", "UNDEFINED"))
-nodes <- data.frame(indices, need=headers, type=types)
+need_idxs <- which(substr(V(g_incon_all)[indices]$need,0,5) == "Need:")
+need_headers <- headers[which(substr(headers,0,5) == "Need:")]
+need_types <- types[need_idxs]
+nodes <- data.frame(need_idxs, need=need_headers, type=need_types)
 edges_in <- get.data.frame(g_incon, what=("edges"))
 edges_out <- get.data.frame(g_outcon, what=("edges"))
 g_incon <- graph.data.frame(edges_in, vertices=nodes, directed=FALSE)
 g_outcon <- graph.data.frame(edges_out, vertices=nodes, directed=FALSE)
+g_incon_all <- g_incon
+g_outcon_all <- g_outcon
 g_incon <- deleteIsolates(g_incon)
 g_outcon <- deleteIsolates(g_outcon)
 g_union <- graph.union(g_incon, g_outcon)
-
-vcount(g_incon)
-vcount(g_outcon)
-ecount(g_incon)
-ecount(g_outcon)
-
 V(g_incon)$color <- ifelse(V(g_incon)$type=="OFFER", "blue", ifelse(V(g_incon)$type=="WANT", "red", "green"))
 V(g_union)$color <- ifelse(V(g_outcon)$type=="OFFER", "blue", ifelse(V(g_outcon)$type=="WANT", "red", "green"))
 #V(g_outcon)$size <- degree(g_outcon)/10 + 3
 
+# print a summary of the graph measures
+cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_incon_all),
+    "( OFFERS:", length(which(V(g_incon_all)$type == "OFFER")),
+    "WANTS:", length(which(V(g_incon_all)$type == "WANT")), 
+    "UNDEFINED:", length(which(V(g_incon_all)$type == "UNDEFINED")), ")",
+    "\nNumber of Needs with connections:", vcount(g_incon),
+    "( OFFERS:", length(which(V(g_incon)$type == "OFFER")),
+    "WANTS:", length(which(V(g_incon)$type == "WANT")), 
+    "UNDEFINED:", length(which(V(g_incon)$type == "UNDEFINED")), ")",
+    "\nNumber of Connections:",ecount(g_incon))
+
+cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_outcon_all),
+    "( OFFERS:", length(which(V(g_outcon_all)$type == "OFFER")),
+    "WANTS:", length(which(V(g_outcon_all)$type == "WANT")), 
+    "UNDEFINED:", length(which(V(g_outcon_all)$type == "UNDEFINED")), ")",
+    "\nNumber of Needs with connections:", vcount(g_outcon),
+    "( OFFERS:", length(which(V(g_outcon)$type == "OFFER")),
+    "WANTS:", length(which(V(g_outcon)$type == "WANT")), 
+    "UNDEFINED:", length(which(V(g_outcon)$type == "UNDEFINED")), ")",
+    "\nNumber of Connections:",ecount(g_outcon))
+
+# plot histograms for degree
+histin <- hist(degree(g_incon_all), breaks=max(degree(g_incon_all)), main="Input Connection Histogram", xlab="number of needs", ylab="connections per need")
+histout <- hist(degree(g_outcon_all), breaks=max(degree(g_outcon_all)), main="Predicted Connection Histogram", xlab="number of needs", ylab="connections per need")
+
+# create the layout for the graphs
 layall <- layout.auto(g_union)
 layall <- layout.norm(layall, xmin = -1, xmax = 1, ymin = -1, ymax = 1)
 layin <- layall[which(is.element(V(g_incon)$name, V(g_union)$name)),]
 
+# plot the graphs after another to see the difference 
+# (execute the commands manually to export pictures of the graphs)
 plot(g_incon, layout=layin, edge.curved=TRUE)
+Sys.sleep(5)
 plot(g_union, layout=layall, edge.curved=TRUE)
 
+# use this to select specific nodes and see their need name
 target <- identify(layall[,1], layall[,2])
 V(g_outcon)[target]$need
-

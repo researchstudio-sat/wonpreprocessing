@@ -295,7 +295,7 @@ if __name__ == '__main__':
               (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
     _log.info('Number of total needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(need_indices(headers)), len(offers), len(wants)))
-    _log.info('Number of test connections: %d' % len(connection_indices(input_tensor)[0]))
+    _log.info('Number of test and train connections: %d' % len(connection_indices(input_tensor)[0]))
     _log.info('Number of total connections: %d' % len(connection_indices(GROUND_TRUTH)[0]))
     _log.info('Number of attributes: %d' % (input_tensor[0].shape[0] - len(need_indices(headers))))
     _log.info('Fold size (needs): %d' % fold_size)
