@@ -16,7 +16,6 @@
 
 package won.preprocessing;
 
-import gate.Corpus;
 import gate.util.GateException;
 import org.apache.commons.mail.util.MimeMessageParser;
 import org.slf4j.Logger;
@@ -33,6 +32,12 @@ import java.io.IOException;
  * Created by hfriedrich on 26.06.2014.
  *
  * Preprocess mail files to produce input for the Gate processing and the matching algorithm.
+ *
+ * Input parameters:
+ * args[0] - Input mail folder: place the mail .eml files to be processed here
+ * args[1] - Output folder: preprocesses mail files to extract the important content to this folder.
+ * Furthermore creates a subfolder called "rescal" were the connections.txt file must be placed befire execution,
+ * and then creates the rescal tensor data and header files in this directory.
  */
 public class MailProcessing
 {
@@ -52,7 +57,6 @@ public class MailProcessing
     } else try {
       MailProcessing.preprocessMails(args[0], args[1]);
       GateRESCALProcessing rescal = new GateRESCALProcessing(GATE_APP_PATH, args[1]);
-      Corpus corpus = null;
       rescal.processFilesWithGate(args[1]);
       rescal.addConnectionData(args[1] + "/rescal/connections.txt");
       rescal.createRescalData(args[1] + "/rescal");

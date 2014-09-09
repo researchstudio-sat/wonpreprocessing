@@ -56,8 +56,8 @@ public class WonMatchingData
   private static final int MAX_DIMENSION = 1000000;
   private static final String NEED_PREFIX = "Need: ";
   private static final String ATTRIBUTE_PREFIX = "Attr: ";
-  private static final String DATA_FILE = "data.mat";
   private static final String HEADERS_FILE = "headers.txt";
+  private static final String DATA_FILE_PREFIX = "data";
 
   private ThirdOrderSparseTensor tensor;
   private ArrayList<String> needs;
@@ -179,7 +179,7 @@ public class WonMatchingData
       return;
     }
 
-    tensor.writeToFile(new File(folder + "/" + DATA_FILE));
+    tensor.writeToFile(folder + "/", DATA_FILE_PREFIX);
 
     // write the headers file
     FileOutputStream fos = new FileOutputStream(new File(folder + "/" + HEADERS_FILE));

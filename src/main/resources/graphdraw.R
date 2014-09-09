@@ -24,7 +24,7 @@ concat <- function(s1, s2) {
 # needtype: need type slice of the tensor
 dataFolder <- "C:/dev/temp/testcorpus/complete/out/rescal/"
 headers <- readLines(concat(dataFolder,"headers.txt"))
-incon <- readMM(concat(dataFolder,"incon.mtx"))
+incon <- readMM(concat(dataFolder,"data-0.mtx"))
 outcon <- readMM(concat(dataFolder,"outcon.mtx"))
 needtype <- readMM(concat(dataFolder,"needtype.mtx"))
 
@@ -37,14 +37,14 @@ indices <- which(headers != "")
 offerNodes <- get.edges(g_type, E(g_type)[to(which(headers=="Attr: OFFER"))])
 wantNodes <- get.edges(g_type, E(g_type)[to(which(headers=="Attr: WANT"))])
 types <- ifelse(is.element(indices, offerNodes), "OFFER", ifelse(is.element(indices, wantNodes), "WANT", "UNDEFINED"))
-need_idxs <- which(substr(V(g_incon_all)[indices]$need,0,5) == "Need:")
-need_headers <- headers[which(substr(headers,0,5) == "Need:")]
-need_types <- types[need_idxs]
-nodes <- data.frame(need_idxs, need=need_headers, type=need_types)
+nodes <- data.frame(indices, need=headers, type=types)
 edges_in <- get.data.frame(g_incon, what=("edges"))
 edges_out <- get.data.frame(g_outcon, what=("edges"))
 g_incon <- graph.data.frame(edges_in, vertices=nodes, directed=FALSE)
 g_outcon <- graph.data.frame(edges_out, vertices=nodes, directed=FALSE)
+attrVertices <- which(substr(V(g_incon)$need,0,5) == "Attr:")
+g_incon <- delete.vertices(g_incon, attrVertices)
+g_outcon <- delete.vertices(g_outcon, attrVertices)
 g_incon_all <- g_incon
 g_outcon_all <- g_outcon
 g_incon <- deleteIsolates(g_incon)
@@ -77,6 +77,7 @@ cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_outcon_a
 
 # plot histograms for degree
 histin <- hist(degree(g_incon_all), breaks=max(degree(g_incon_all)), main="Input Connection Histogram", xlab="number of needs", ylab="connections per need")
+Sys.sleep(5)
 histout <- hist(degree(g_outcon_all), breaks=max(degree(g_outcon_all)), main="Predicted Connection Histogram", xlab="number of needs", ylab="connections per need")
 
 # create the layout for the graphs

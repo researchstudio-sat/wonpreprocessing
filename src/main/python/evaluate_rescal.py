@@ -13,6 +13,7 @@ import sklearn.metrics as m
 from numpy import dot, zeros
 from numpy.random import shuffle
 from scipy.io.matlab import loadmat
+from scipy.io import mmread
 from scipy.sparse import csr_matrix
 from scipy import sparse
 from scipy.spatial.distance import pdist
@@ -36,24 +37,24 @@ def predict_rescal_als(input_tensor, rank):
         P[:, :, k] = dot(A, dot(R[k], A.T))
     return P, A, R
 
-# read the input tensor data and the headers file
-def read_input_tensor(data_file, header_file):
-    _log.info("Read mat input file: " + data_file)
-    mat = loadmat(data_file)
+# read the input tensor data (data-0.mtx ... data-3.mtx) and
+# the headers file (headers.txt) from the folder
+def read_input_tensor(folder):
+    header_file =  folder + "/headers.txt"
     _log.info("Read header input file: " + header_file)
     input = codecs.open(header_file,'r',encoding='utf8')
     headers = input.read().splitlines()
     K = []
     for i in range(0,3):
-        G = mat['Rs' + str(i)]
-        I,J = G.nonzero()
-        V = G.data
-        K.append(sparse.csr_matrix((V,(I,J)),G.shape))
+        data_file = folder + "/data-" + str(i) + ".mtx"
+        _log.info("Read the data input file: " + data_file )
+        matrix = mmread(data_file)
+        K.append(csr_matrix(matrix))
     input.close()
     return K, headers
 
-# return a tiple with two lists holding need indices that represent connections
-# between these needs
+# return a tuple with two lists holding need indices that represent connections
+# between these needs, symmetric connection are only represented once
 def connection_indices(tensor):
     nz = tensor[0].nonzero()
     nz0 = [nz[0][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
@@ -257,15 +258,19 @@ class EvaluationReport:
 #    (only match offers with wants)
 #
 # Input parameters:
-# argv[1]: tensor matrix data file name
-# argv[2]: headers file name
-# argv[3]: connections file name
+# argv[1]: folder with the following files:
+# - tensor matrix data file name
+# - headers file name
+# - connections file name
 if __name__ == '__main__':
 
     # load the tensor input data
-    input_tensor, headers = read_input_tensor(sys.argv[1], sys.argv[2])
-    checked_needs = manually_checked_needs(headers, sys.argv[3])
+    folder = sys.argv[1]
+    input_tensor, headers = read_input_tensor(folder)
+    checked_needs = manually_checked_needs(headers, folder + "/connections.txt")
     GROUND_TRUTH = input_tensor
+
+    connection_indices(input_tensor)
 
     # 10-fold cross validation
     FOLDS = 10

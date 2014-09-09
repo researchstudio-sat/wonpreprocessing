@@ -121,6 +121,15 @@ public class WonMatchingDataTest
     data.addNeedConnection("Need1", "Need2");
     data.addNeedType("Need3", WonMatchingData.NeedType.WANT);
 
+    ThirdOrderSparseTensor t = new ThirdOrderSparseTensor(1000000,1000000,4,1);
+    t.setEntry(1.0f, 0, 1, 1);
+    t.setEntry(1.0f, 0, 2, 2);
+    t.setEntry(1.0f, 0, 3, 2);
+    t.setEntry(1.0f, 0, 4, 3);
+    double e1 = t.getEntry(0, 4, 3);
+    t.resize(9,9,4,10);
+    double e2 = t.getEntry(0, 4, 3);
+
     ThirdOrderSparseTensor tensor = data.createFinalTensor();
     int[] dim = {9, 9, WonMatchingData.SliceTypes.values().length};
     Assert.assertArrayEquals(dim, tensor.getDimensions());
@@ -138,5 +147,16 @@ public class WonMatchingDataTest
     Assert.assertEquals(1.0d, tensor.getEntry(0, 5, WonMatchingData.SliceTypes.HAS_CONNECTION.ordinal()), DELTA);
     Assert.assertEquals(1.0d, tensor.getEntry(5, 0, WonMatchingData.SliceTypes.HAS_CONNECTION.ordinal()), DELTA);
     Assert.assertEquals(1.0d, tensor.getEntry(8, 6, WonMatchingData.SliceTypes.IS_NEED_TYPE.ordinal()), DELTA);
+
+    // 1 connection (symmentric entries) => 2 NZ entries
+    Assert.assertEquals(2, tensor.getNonZeroEntries(WonMatchingData.SliceTypes.HAS_CONNECTION.ordinal()));
+
+    // one entry for every need
+    Assert.assertEquals(3, tensor.getNonZeroEntries(WonMatchingData.SliceTypes.IS_NEED_TYPE.ordinal()));
+
+    // one entry for every need-attribute combination
+    Assert.assertEquals(4, tensor.getNonZeroEntries(WonMatchingData.SliceTypes.HAS_TOPIC_ATTRIBUTE.ordinal()));
+    Assert.assertEquals(2, tensor.getNonZeroEntries(WonMatchingData.SliceTypes.HAS_CONNECTION.ordinal()));
+
   }
 }

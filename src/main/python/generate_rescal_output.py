@@ -62,13 +62,12 @@ def write_need_output(file, similarity_matrix, headers):
 # or output tensor. These files can be used to do further evaluation in R.
 #
 # Input parameters:
-# argv[1]: tensor matrix data file name
-# argv[2]: headers file name
-# argv[3]: output directory
+# argv[1]: folder with the data files (data-0.mtx ... data-N.mtx), the header file (headers.txt)
 if __name__ == '__main__':
 
     # load the tensor input data
-    input_tensor, headers = util.read_input_tensor(sys.argv[1], sys.argv[2])
+    folder = sys.argv[1]
+    input_tensor, headers = util.read_input_tensor(folder)
     needs = util.need_indices(headers)
     offers = util.offer_indices(input_tensor, headers)
     wants = util.want_indices(input_tensor, headers)
@@ -78,22 +77,20 @@ if __name__ == '__main__':
     P, A, R = util.predict_rescal_als(input_tensor, RANK)
 
     # write output files
-    write_term_output(sys.argv[3] + "/outterm.txt", P, headers)
-    write_connection_output(sys.argv[3] + "/outconn.txt", input_tensor, P, headers)
+    write_term_output(folder + "/outterm.txt", P, headers)
+    write_connection_output(folder + "/outconn.txt", input_tensor, P, headers)
 
     # write output file for further R processing
     P_bin = util.predict_connections_by_threshold(P, 0.05, offers, wants, needs)
-    _log.info('Writing need type slice output file: ' + sys.argv[3] + "/needtype.mtx")
-    mmwrite(sys.argv[3] + "/needtype.mtx", input_tensor[1])
-    _log.info('Writing input connection slice output file: ' + sys.argv[3] + "/incon.mtx")
-    mmwrite(sys.argv[3] + "/incon.mtx", input_tensor[0])
-    _log.info('Writing predicted connection slice output file: ' + sys.argv[3] + "/outcon.mtx")
-    mmwrite(sys.argv[3] + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
+    _log.info('Writing need type slice output file: ' + folder + "/needtype.mtx")
+    mmwrite(folder + "/needtype.mtx", input_tensor[1])
+    _log.info('Writing predicted connection slice output file: ' + folder + "/outcon.mtx")
+    mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
 
     # write need similarity output file - use only attribute slice, not connection or classification
     P, A, R = util.predict_rescal_als([input_tensor[2]], RANK)
     S = util.similarity_ranking(A)
-    write_need_output(sys.argv[3] + "/outneed.txt", S, headers)
+    write_need_output(folder + "/outneed.txt", S, headers)
 
 
 

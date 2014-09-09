@@ -17,8 +17,9 @@ Preprocessing:
 * setup input folder with mail files
 * setup output folder (including a subfolder "rescal" with "connections.txt" file)
 * execute "MailProcessing.java" with following parameters:
-VM options: -Dgate.home=<pathtogate> -Xmx3G
-program args: <input mail folder> <output mail folder>
+VM options: -Dgate.home=path_to_gate -Xmx3G
+program args: input_mail_folder output_mail_folder
+
 
 
 RESCAL:
