@@ -26,7 +26,7 @@ dataFolder <- "C:/dev/temp/testcorpus/complete/out/rescal/"
 headers <- readLines(concat(dataFolder,"headers.txt"))
 incon <- readMM(concat(dataFolder,"data-0.mtx"))
 outcon <- readMM(concat(dataFolder,"outcon.mtx"))
-needtype <- readMM(concat(dataFolder,"needtype.mtx"))
+needtype <- readMM(concat(dataFolder,"data-1.mtx"))
 
 # create the graphs
 igraph.options(vertex.size=3, vertex.label=NA)
@@ -50,9 +50,10 @@ g_outcon_all <- g_outcon
 g_incon <- deleteIsolates(g_incon)
 g_outcon <- deleteIsolates(g_outcon)
 g_union <- graph.union(g_incon, g_outcon)
+V(g_union)$need <- ifelse(is.na(V(g_union)$need_1), V(g_union)$need_2, V(g_union)$need_1)
+V(g_union)$type <- ifelse(is.na(V(g_union)$type_1), V(g_union)$type_2, V(g_union)$type_1)
 V(g_incon)$color <- ifelse(V(g_incon)$type=="OFFER", "blue", ifelse(V(g_incon)$type=="WANT", "red", "green"))
-V(g_union)$color <- ifelse(V(g_outcon)$type=="OFFER", "blue", ifelse(V(g_outcon)$type=="WANT", "red", "green"))
-#V(g_outcon)$size <- degree(g_outcon)/10 + 3
+V(g_union)$color <- ifelse(V(g_union)$type=="OFFER", "blue", ifelse(V(g_union)$type=="WANT", "red", "green"))
 
 # print a summary of the graph measures
 cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_incon_all),
@@ -65,20 +66,20 @@ cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_incon_al
     "UNDEFINED:", length(which(V(g_incon)$type == "UNDEFINED")), ")",
     "\nNumber of Connections:",ecount(g_incon))
 
-cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_outcon_all),
-    "( OFFERS:", length(which(V(g_outcon_all)$type == "OFFER")),
-    "WANTS:", length(which(V(g_outcon_all)$type == "WANT")), 
-    "UNDEFINED:", length(which(V(g_outcon_all)$type == "UNDEFINED")), ")",
-    "\nNumber of Needs with connections:", vcount(g_outcon),
-    "( OFFERS:", length(which(V(g_outcon)$type == "OFFER")),
-    "WANTS:", length(which(V(g_outcon)$type == "WANT")), 
-    "UNDEFINED:", length(which(V(g_outcon)$type == "UNDEFINED")), ")",
-    "\nNumber of Connections:",ecount(g_outcon))
+cat("Predicted (+input) connections graph summary:", "\nNumber of Needs: ", vcount(g_incon_all),
+    "( OFFERS:", length(which(V(g_incon_all)$type == "OFFER")),
+    "WANTS:", length(which(V(g_incon_all)$type == "WANT")), 
+    "UNDEFINED:", length(which(V(g_incon_all)$type == "UNDEFINED")), ")",
+    "\nNumber of Needs with connections:", vcount(g_union),
+    "( OFFERS:", length(which(V(g_union)$type == "OFFER")),
+    "WANTS:", length(which(V(g_union)$type == "WANT")), 
+    "UNDEFINED:", length(which(V(g_union)$type == "UNDEFINED")), ")",
+    "\nNumber of Connections:",ecount(g_union))
 
 # plot histograms for degree
-histin <- hist(degree(g_incon_all), breaks=max(degree(g_incon_all)), main="Input Connection Histogram", xlab="number of needs", ylab="connections per need")
+histin <- hist(degree(g_incon), breaks=max(degree(g_incon)), main="Input Connection Histogram", xlab="number of needs", ylab="connections per need")
 Sys.sleep(5)
-histout <- hist(degree(g_outcon_all), breaks=max(degree(g_outcon_all)), main="Predicted Connection Histogram", xlab="number of needs", ylab="connections per need")
+histout <- hist(degree(g_union), breaks=max(degree(g_union)), main="Predicted (+Input) Connection Histogram", xlab="number of needs", ylab="connections per need")
 
 # create the layout for the graphs
 layall <- layout.auto(g_union)
@@ -93,4 +94,4 @@ plot(g_union, layout=layall, edge.curved=TRUE)
 
 # use this to select specific nodes and see their need name
 target <- identify(layall[,1], layall[,2])
-V(g_outcon)[target]$need
+V(g_union)[target]$need

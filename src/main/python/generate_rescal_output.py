@@ -62,7 +62,10 @@ def write_need_output(file, similarity_matrix, headers):
 # or output tensor. These files can be used to do further evaluation in R.
 #
 # Input parameters:
-# argv[1]: folder with the data files (data-0.mtx ... data-N.mtx), the header file (headers.txt)
+# argv[1]: folder with the following files:
+# - tensor matrix data file name
+# - headers file name
+# - connections file name
 if __name__ == '__main__':
 
     # load the tensor input data
@@ -82,8 +85,6 @@ if __name__ == '__main__':
 
     # write output file for further R processing
     P_bin = util.predict_connections_by_threshold(P, 0.05, offers, wants, needs)
-    _log.info('Writing need type slice output file: ' + folder + "/needtype.mtx")
-    mmwrite(folder + "/needtype.mtx", input_tensor[1])
     _log.info('Writing predicted connection slice output file: ' + folder + "/outcon.mtx")
     mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
 
