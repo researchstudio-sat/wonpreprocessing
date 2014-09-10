@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
 import logging
+
+from src.main.python import evaluate_rescal as util
+
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger('Mail Example')
 
 import sys
 import numpy as np
-import evaluate_rescal as util
 from scipy.sparse import csr_matrix
 from scipy.io import mmwrite
 import codecs

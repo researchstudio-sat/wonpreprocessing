@@ -116,6 +116,10 @@ public class MailProcessing
         String content = null;
         if (parser.hasPlainContent()) {
           content = parser.getPlainContent();
+          int endIndex = content.indexOf("-------------");
+          if (endIndex != -1) {
+            content = content.substring(0, endIndex);
+          }
         } else {
           logger.warn("no plain content in file: {}, use HTML content", file);
           content = parser.getHtmlContent();
@@ -130,7 +134,7 @@ public class MailProcessing
         fw.append(TO_PREFIX + parser.getTo() + "\n");
         fw.append(DATE_PREFIX + emailMessage.getSentDate() + "\n");
         fw.append(SUBJECT_PREFIX + parser.getSubject() + "\n");
-        fw.append(CONTENT_PREFIX + parser.getPlainContent() + "\n");
+        fw.append(CONTENT_PREFIX + /*parser.getPlainContent()*/content + "\n");
 
       } catch (MessagingException me) {
         logger.error("Error opening mail file: " + file.getAbsolutePath(), me);
