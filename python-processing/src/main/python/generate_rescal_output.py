@@ -2,7 +2,7 @@
 
 import logging
 
-from src.main.python import evaluate_rescal as util
+import evaluate_rescal as util
 
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger('Mail Example')

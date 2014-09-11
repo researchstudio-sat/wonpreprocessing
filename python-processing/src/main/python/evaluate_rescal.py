@@ -268,17 +268,33 @@ if __name__ == '__main__':
     folder = sys.argv[1]
     input_tensor, headers = read_input_tensor(folder)
     checked_needs = manually_checked_needs(headers, folder + "/connections.txt")
-    GROUND_TRUTH = input_tensor
+    GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
 
-    connection_indices(input_tensor)
+
+    # TEST-PARAMETERS:
+    # ===================
 
     # 10-fold cross validation
     FOLDS = 10
-    RANK = 100
+
+    # changing the rank parameter influences the amount of internal latent "clusters" of the algorithm and thus the
+    # quality of the matching as well as performance (memory and execution time)
+    RANK = 50
+
+    # the f-beta-measure is used to calculate the optimal threshold for the rescal algorithm. beta=1 is the
+    # F1-measure which weights precision and recall both same important. the higher the beta value,
+    # the more important is recall compared to precision
     F_BETA = 2
+
+    # this is used to return the top X connections for each need. Used in predict_connections_by_need_similarity and predict_connections_per_need
     TOPX = 10
-    offset = 0
+
+    # by changing this parameter the number of training connections per need can be set. Choose a high value (e.g.
+    # 100) to use all connection in the connections file. Choose a low number to restrict the number of training
+    # connections (e.g. to 1 or even 0). This way tests are possible that describe situation where initially not many
+    # connection are available to learn from.
     MAX_CONNECTIONS_PER_NEED = 100
+
     _log.info('------------------------------')
     _log.info('Test Setup:')
     _log.info('------------------------------')
@@ -295,15 +311,18 @@ if __name__ == '__main__':
     report2 = EvaluationReport(F_BETA)
     report3 = EvaluationReport(F_BETA)
 
-    _log.info('Starting %d-fold cross validation' % FOLDS)
     _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
     _log.info('Number of total needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(need_indices(headers)), len(offers), len(wants)))
     _log.info('Number of test and train connections: %d' % len(connection_indices(input_tensor)[0]))
-    _log.info('Number of total connections: %d' % len(connection_indices(GROUND_TRUTH)[0]))
+    _log.info('Number of total connections (for evaluation): %d' % len(connection_indices(GROUND_TRUTH)[0]))
     _log.info('Number of attributes: %d' % (input_tensor[0].shape[0] - len(need_indices(headers))))
+    _log.info('Starting %d-fold cross validation' % FOLDS)
     _log.info('Fold size (needs): %d' % fold_size)
+
+    # start the cross validation
+    offset = 0
     for f in range(FOLDS):
 
         _log.info('------------------------------')
