@@ -148,8 +148,9 @@ def similarity_ranking(A):
     dist = squareform(pdist(A, metric='cosine'))
     return dist
 
-# for rescal algorithm output predict the X top rated connections for each of the test_needs based on the similarity of latent need clusters
-def predict_rescal_connections_by_need_similarity(A, all_offers, all_wants, test_needs, num_predictions):
+# for rescal algorithm output predict connections by fixed threshold for each of the test_needs based on the
+# similarity of latent need clusters (higher threshold means higher recall)
+def predict_rescal_connections_by_need_similarity(A, threshold, all_offers, all_wants, test_needs):
     S = similarity_ranking(A)
     binary_prediction = zeros(P.shape)
     for need in test_needs:
@@ -159,13 +160,13 @@ def predict_rescal_connections_by_need_similarity(A, all_offers, all_wants, test
             all_needs = all_offers
         else:
             continue
-        darr = np.array(S[need,:][all_needs])
-        pred_indices = (np.argsort(darr))[:num_predictions]
-        for x in np.array(all_needs)[pred_indices]:
-            binary_prediction[need, x, 0] = 1
+
+        for x in all_needs:
+            if S[need,x] < threshold:
+                binary_prediction[need, x, 0] = 1
     return binary_prediction
 
-# for rescal algorithm output predict connections by fixed threshold
+# for rescal algorithm output predict connections by fixed threshold (higher threshold means higher precision)
 def predict_rescal_connections_by_threshold(P, threshold, all_offers, all_wants, test_needs):
     binary_prediction = zeros(P.shape)
     for need in test_needs:
@@ -238,7 +239,7 @@ class EvaluationReport:
 # Five different approaches for connection prediction between needs are tested.
 # 1) RESCAL: choose a fixed threshold and take every connection that exceeds this threshold
 # 2) RESCAL: take the top X highest rated connections as a prediction per need
-# 3) RESCAL: take the top X most similar needs to the test need for connection prediction
+# 3) RESCAL: choose a fixed threshold and compare need similarity to predict connections
 # 4) compute the cosine similarity between attributes of the needs
 # 5) compute the weighted cosine similarity between attributes of the needs
 #
@@ -280,12 +281,13 @@ if __name__ == '__main__':
     # connection are available to learn from.
     MAX_CONNECTIONS_PER_NEED = 100
 
-    # threshold for RESCAL algorithm, increase threshold to for higher precision (and lower recall), decrease threshold
-    # for higher recall (and lower precision)
+    # threshold for RESCAL algorithm connection slice, higher threshold means higher precision
     RESCAL_THRESHOLD = 0.005
 
-    # threshold for cosine similarity link prediction algorithm, increase threshold for higher recall (and lower
-    # precision), decrease threshold to for higher precision (and lower recall)
+    # threshold for RESCAL algorithm need similarity, higher threshold means higher recall
+    RESCAL_SIMILARITY_THRESHOLD = 0.08
+
+    # threshold for cosine similarity link prediction algorithm, higher threshold means higher recall
     COSINE_SIMILARITY_THRESHOLD = 0.5
 
     _log.info('------------------------------')
@@ -343,20 +345,20 @@ if __name__ == '__main__':
         _log.info('AUC test: ' + str(AUC_test[f]))
 
         # first use a fixed threshold to compute several measures
-        _log.info('For RESCAL with threshold %f:' % RESCAL_THRESHOLD)
+        _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
         P_bin = predict_rescal_connections_by_threshold(P, RESCAL_THRESHOLD, offers, wants, test_needs)
         binary_pred = P_bin[:,:,0][idx_test]
         report1.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
 
         # second use the 10 highest rated connections for every need to other needs
-        _log.info('For prediction of %d top rated connections per need: ' % TOPX)
+        _log.info('For RESCAL prediction of %d top rated connections per need: ' % TOPX)
         P_bin = predict_rescal_connections_per_need(P, offers, wants, test_needs, TOPX)
         binary_pred = P_bin[:,:,0][idx_test]
         report2.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
 
         # third use the 10 most similar needs per need to predict connections
-        _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
-        P_bin = predict_rescal_connections_by_need_similarity(A, offers, wants, test_needs, TOPX)
+        _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
+        P_bin = predict_rescal_connections_by_need_similarity(A, RESCAL_SIMILARITY_THRESHOLD, offers, wants, test_needs)
         binary_pred = P_bin[:,:,0][idx_test]
         report3.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
 
@@ -375,13 +377,13 @@ if __name__ == '__main__':
     _log.info('====================================================')
     _log.info('AUC-PR Test Mean / Std: %f / %f' % (AUC_test.mean(), AUC_test.std()))
     _log.info('----------------------------------------------------')
-    _log.info('For RESCAL with threshold %f:' % RESCAL_THRESHOLD)
+    _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
     report1.summary()
     _log.info('----------------------------------------------------')
-    _log.info('For prediction of %d top rated connections per need: ' % TOPX)
+    _log.info('For RESCAL prediction of %d top rated connections per need: ' % TOPX)
     report2.summary()
     _log.info('----------------------------------------------------')
-    _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
+    _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
     report3.summary()
     _log.info('----------------------------------------------------')
     _log.info('For prediction of cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
