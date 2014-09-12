@@ -28,7 +28,8 @@ RESCAL:
 * install python (2.7 or 3.4) with scipy and numpy packages (e.g. Anaconda : http://continuum.io/downloads)
 * install https://github.com/mnick/scikit-tensor
 * install https://github.com/mnick/rescal.py
-* execute "python-processing/src/main/python/evaluate_rescal.py" for an evaluation of the preprocessed that with rescal
+* execute "python-processing/src/main/python/evaluate_link_prediction.py" for an evaluation of several link
+prediction algorithms, including RESCAL
 * execute "python-processing/src/main/python/generate_rescal_output.py" for generation of rescal example output for preprocessed data
 
 R:

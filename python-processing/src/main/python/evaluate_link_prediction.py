@@ -12,30 +12,13 @@ import numpy as np
 import sklearn.metrics as m
 from numpy import dot, zeros
 from numpy.random import shuffle
-from scipy.io.matlab import loadmat
 from scipy.io import mmread
 from scipy.sparse import csr_matrix
-from scipy import sparse
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 from rescal import rescal_als
+from cosine_link_prediction import cosinus_link_prediciton, cosinus_weighted_link_prediction
 
-
-# execute the rescal algorithm and return a prediction tensor
-def predict_rescal_als(input_tensor, rank):
-    _log.info('start rescal processing ...')
-    _log.info('Datasize: %d x %d x %d | Rank: %d' % (
-        input_tensor[0].shape + (len(input_tensor),) + (rank,))
-    )
-    A, R, _, _, _ = rescal_als(
-        input_tensor, rank, init='nvecs', conv=1e-3,
-        lambda_A=0, lambda_R=0, compute_fit='true'
-    )
-    n = A.shape[0]
-    P = zeros((n, n, len(R)))
-    for k in range(len(R)):
-        P[:, :, k] = dot(A, dot(R[k], A.T))
-    return P, A, R
 
 # read the input tensor data (data-0.mtx ... data-3.mtx) and
 # the headers file (headers.txt) from the folder
@@ -128,8 +111,24 @@ def mask_all_but_X_connections_per_need(tensor, keep_x):
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
-# predict the X top rated connections for each of the test_needs
-def predict_connections_per_need(P, all_offers, all_wants, test_needs, num_predictions):
+# execute the rescal algorithm and return a prediction tensor
+def predict_rescal_als(input_tensor, rank):
+    _log.info('start rescal processing ...')
+    _log.info('Datasize: %d x %d x %d | Rank: %d' % (
+        input_tensor[0].shape + (len(input_tensor),) + (rank,))
+    )
+    A, R, _, _, _ = rescal_als(
+        input_tensor, rank, init='nvecs', conv=1e-3,
+        lambda_A=0, lambda_R=0, compute_fit='true'
+    )
+    n = A.shape[0]
+    P = zeros((n, n, len(R)))
+    for k in range(len(R)):
+        P[:, :, k] = dot(A, dot(R[k], A.T))
+    return P, A, R
+
+# for rescal algorithm output predict the X top rated connections for each of the test_needs
+def predict_rescal_connections_per_need(P, all_offers, all_wants, test_needs, num_predictions):
     binary_prediction = zeros(P.shape)
     for need in test_needs:
         if need in all_offers:
@@ -149,8 +148,8 @@ def similarity_ranking(A):
     dist = squareform(pdist(A, metric='cosine'))
     return dist
 
-# predict the X top rated connections for each of the test_needs based on the similarity of latent need clusters
-def predict_connections_by_need_similarity(A, all_offers, all_wants, test_needs, num_predictions):
+# for rescal algorithm output predict the X top rated connections for each of the test_needs based on the similarity of latent need clusters
+def predict_rescal_connections_by_need_similarity(A, all_offers, all_wants, test_needs, num_predictions):
     S = similarity_ranking(A)
     binary_prediction = zeros(P.shape)
     for need in test_needs:
@@ -166,8 +165,8 @@ def predict_connections_by_need_similarity(A, all_offers, all_wants, test_needs,
             binary_prediction[need, x, 0] = 1
     return binary_prediction
 
-# predict connection by fixed threshold
-def predict_connections_by_threshold(P, threshold, all_offers, all_wants, test_needs):
+# for rescal algorithm output predict connections by fixed threshold
+def predict_rescal_connections_by_threshold(P, threshold, all_offers, all_wants, test_needs):
     binary_prediction = zeros(P.shape)
     for need in test_needs:
         if need in all_offers:
@@ -181,33 +180,19 @@ def predict_connections_by_threshold(P, threshold, all_offers, all_wants, test_n
                 binary_prediction[need,x,0] = 1
     return binary_prediction
 
-# calculate several measures based on ground truth and prediction values
-def eval_report(y_true, y_pred, f_beta=1):
-    precision, recall, fscore, _ = m.precision_recall_fscore_support(y_true, y_pred, f_beta, average='weighted')
-    accuracy = m.accuracy_score(y_true, y_pred)
-    confusionmatrix = m.confusion_matrix(y_true, y_pred, [1, 0])
-    _log.info('accuracy: %f' % accuracy)
-    _log.info('precision: %f' % precision)
-    _log.info('recall: %f' % recall)
-    _log.info('f%d-score: %f' % (f_beta, fscore))
-    _log.info('confusion matrix: ' + str(confusionmatrix))
-    return precision, recall, accuracy, fscore
-
 # calculate the optimal threshold by maximizing the f-score measure
-def get_optimal_threshold(y_true, prediction, f_beta=1):
-    prediction = np.round_(prediction, decimals=5)
-    prec, recall, thresholds = m.precision_recall_curve(y_true, prediction)
+def get_optimal_threshold(recall, precision, threshold, f_beta=1):
     max_f_score = 0
     optimal_threshold = 0.0
-    for i in range(len(thresholds)):
+    for i in range(len(threshold)):
         r = recall[i]
-        p = prec[i]
+        p = precision[i]
         div = (f_beta * f_beta * p + r)
         if div != 0:
             f_score = (1 + f_beta * f_beta) * (p * r) / div
             if f_score > max_f_score:
                 max_f_score = f_score
-                optimal_threshold = thresholds[i]
+                optimal_threshold = threshold[i]
     return optimal_threshold
 
 # class to collect data during the runs of the test and print calculated measures for summary
@@ -247,15 +232,15 @@ class EvaluationReport:
 
 # This program executes a N-fold cross validation on rescal tensor data.
 # For each fold test needs are randomly chosen and all their connections to
-# all other needs are masked by 0 in the tensor. Then rescal is executed and
-# measures are taken that describe the recovery of these masked connection entries.
-# Three different approaches for connection prediction between needs are tested.
-# 1) choose a fixed threshold by taking the maximum fscore measure and take
-#    every connection that exceeds this threshold
-# 2) take the top X highest rated connections as a prediction per need
-#    (only match offers with wants)
-# 3) take the top X most similar needs to the test need for connection prediction
-#    (only match offers with wants)
+# all other needs are masked by 0 in the tensor. Then link prediction algorithms
+# (e.g. RESCAL) are executed and measures are taken that describe the recovery of
+# these masked connection entries.
+# Five different approaches for connection prediction between needs are tested.
+# 1) RESCAL: choose a fixed threshold and take every connection that exceeds this threshold
+# 2) RESCAL: take the top X highest rated connections as a prediction per need
+# 3) RESCAL: take the top X most similar needs to the test need for connection prediction
+# 4) compute the cosine similarity between attributes of the needs
+# 5) compute the weighted cosine similarity between attributes of the needs
 #
 # Input parameters:
 # argv[1]: folder with the following files:
@@ -295,11 +280,19 @@ if __name__ == '__main__':
     # connection are available to learn from.
     MAX_CONNECTIONS_PER_NEED = 100
 
+    # threshold for RESCAL algorithm, increase threshold to for higher precision (and lower recall), decrease threshold
+    # for higher recall (and lower precision)
+    RESCAL_THRESHOLD = 0.005
+
+    # threshold for cosine similarity link prediction algorithm, increase threshold for higher recall (and lower
+    # precision), decrease threshold to for higher precision (and lower recall)
+    COSINE_SIMILARITY_THRESHOLD = 0.5
+
     _log.info('------------------------------')
     _log.info('Test Setup:')
     _log.info('------------------------------')
     _log.info('For testing use only needs that were manually checked for connections')
-    needs = checked_needs #need_indices(headers)
+    needs = checked_needs
     _log.info('For testing use a maximum number of %d connections per need' % MAX_CONNECTIONS_PER_NEED)
     input_tensor = mask_all_but_X_connections_per_need(input_tensor, MAX_CONNECTIONS_PER_NEED)
     offers = offer_indices(input_tensor, headers)
@@ -310,6 +303,8 @@ if __name__ == '__main__':
     report1 = EvaluationReport(F_BETA)
     report2 = EvaluationReport(F_BETA)
     report3 = EvaluationReport(F_BETA)
+    report4 = EvaluationReport(F_BETA)
+    report5 = EvaluationReport(F_BETA)
 
     _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
@@ -337,43 +332,50 @@ if __name__ == '__main__':
         # execute the rescal algorithm
         P, A, R = predict_rescal_als(test_tensor, RANK)
 
-        # in the first fold-run calculate a threshold to work with
-        if f == 0:
-            optimal_threshold = get_optimal_threshold(
-                np.ravel(GROUND_TRUTH[0].toarray()[idx_test]),
-                np.ravel(P[:,:,0][idx_test]), F_BETA)
-            _log.info('choose threshold ' + str(optimal_threshold) +
-                      ' (maximum F' + str(F_BETA) + '-score of first fold)')
-
         # evaluate the predictions
-        prec, recall, thresholds = m.precision_recall_curve(GROUND_TRUTH[0].toarray()[idx_test], P[:,:,0][idx_test])
-        AUC_test[f] = m.auc(recall, prec)
+        prediction = np.round_(P[:,:,0][idx_test], decimals=5)
+        precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[0].toarray()[idx_test], prediction)
+        optimal_threshold = get_optimal_threshold(recall, precision, threshold, F_BETA)
+        _log.info('optimal RESCAL threshold would be ' + str(optimal_threshold) +
+                  ' (for maximum F' + str(F_BETA) + '-score)')
+
+        AUC_test[f] = m.auc(recall, precision)
         _log.info('AUC test: ' + str(AUC_test[f]))
 
         # first use a fixed threshold to compute several measures
-        _log.info('For threshold %f (max f%d-score):' % (optimal_threshold, F_BETA))
-        P_bin = predict_connections_by_threshold(P, optimal_threshold, offers, wants, test_needs)
-        binary_prediction = P_bin[:,:,0][idx_test]
-        report1.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_prediction)
+        _log.info('For RESCAL with threshold %f:' % RESCAL_THRESHOLD)
+        P_bin = predict_rescal_connections_by_threshold(P, RESCAL_THRESHOLD, offers, wants, test_needs)
+        binary_pred = P_bin[:,:,0][idx_test]
+        report1.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
 
         # second use the 10 highest rated connections for every need to other needs
         _log.info('For prediction of %d top rated connections per need: ' % TOPX)
-        P_bin = predict_connections_per_need(P, offers, wants, test_needs, TOPX)
-        binary_prediction = P_bin[:,:,0][idx_test]
-        report2.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_prediction)
+        P_bin = predict_rescal_connections_per_need(P, offers, wants, test_needs, TOPX)
+        binary_pred = P_bin[:,:,0][idx_test]
+        report2.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
 
         # third use the 10 most similar needs per need to predict connections
         _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
-        P_bin = predict_connections_by_need_similarity(A, offers, wants, test_needs, TOPX)
-        binary_prediction = P_bin[:,:,0][idx_test]
-        report3.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_prediction)
+        P_bin = predict_rescal_connections_by_need_similarity(A, offers, wants, test_needs, TOPX)
+        binary_pred = P_bin[:,:,0][idx_test]
+        report3.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
+
+        # execute the cosine similarity link prediction algorithm
+        _log.info('For prediction of cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
+        binary_pred = cosinus_link_prediciton(test_tensor, offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD)
+        report4.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred[idx_test])
+
+        # execute the weighted cosine similarity link prediction algorithm
+        _log.info('For prediction of weigthed cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
+        binary_pred = cosinus_weighted_link_prediction(test_tensor, offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD)
+        report5.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred[idx_test])
 
         offset += fold_size
 
     _log.info('====================================================')
     _log.info('AUC-PR Test Mean / Std: %f / %f' % (AUC_test.mean(), AUC_test.std()))
     _log.info('----------------------------------------------------')
-    _log.info('For threshold %f (max f%d-score):' % (optimal_threshold, F_BETA))
+    _log.info('For RESCAL with threshold %f:' % RESCAL_THRESHOLD)
     report1.summary()
     _log.info('----------------------------------------------------')
     _log.info('For prediction of %d top rated connections per need: ' % TOPX)
@@ -381,6 +383,12 @@ if __name__ == '__main__':
     _log.info('----------------------------------------------------')
     _log.info('For prediction of %d connections based on need similarity: ' % TOPX)
     report3.summary()
+    _log.info('----------------------------------------------------')
+    _log.info('For prediction of cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
+    report4.summary()
+    _log.info('----------------------------------------------------')
+    _log.info('For prediction of weigthed cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
+    report5.summary()
 
 
 

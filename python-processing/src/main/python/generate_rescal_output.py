@@ -2,7 +2,7 @@
 
 import logging
 
-import evaluate_rescal as util
+import evaluate_link_prediction as util
 
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger('Mail Example')
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     write_connection_output(folder + "/outconn.txt", input_tensor, P, headers)
 
     # write output file for further R processing
-    P_bin = util.predict_connections_by_threshold(P, 0.05, offers, wants, needs)
+    P_bin = util.predict_rescal_connections_by_threshold(P, 0.05, offers, wants, needs)
     _log.info('Writing predicted connection slice output file: ' + folder + "/outcon.mtx")
     mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
 
