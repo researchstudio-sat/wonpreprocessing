@@ -10,6 +10,7 @@ import sys
 import codecs
 import numpy as np
 import sklearn.metrics as m
+import os
 from numpy import dot, zeros
 from numpy.random import shuffle
 from scipy.io import mmread
@@ -17,6 +18,7 @@ from scipy.sparse import csr_matrix
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 from rescal import rescal_als
+from time import strftime
 from cosine_link_prediction import cosinus_link_prediciton, cosinus_weighted_link_prediction
 
 
@@ -110,6 +112,85 @@ def mask_all_but_X_connections_per_need(tensor, keep_x):
             slices[0][col,row] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
+
+# classify based on 2 values as true positive (TP), true negative (TN), false positive (FP), false negative (FN)
+def test_classification(y_true, y_pred):
+    if y_true == y_pred:
+        if y_true == 1.0:
+            return "TP"
+        else:
+            return "TN"
+    else:
+        if y_true == 1.0:
+            return "FN"
+        else:
+            return "FP"
+
+# helper function
+def create_file_from_sorted_list(dir, filename, list):
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    file = codecs.open(dir + "/" + filename,'w+',encoding='utf8')
+    list.sort()
+    for entry in list:
+        file.write(entry + "\n")
+    file.close()
+
+def calc_precision(TP, FP):
+    return TP / float(TP + FP) if (TP + FP) > 0 else 1.0
+
+def calc_recall(TP, FN):
+    return TP / float(TP + FN) if (TP + FN) > 0 else 1.0
+
+def calc_accuracy(TP, TN, FP, FN):
+    return (TP + TN) / float(TP + TN + FP + FN) if (TP + TN + FP + FN) > 0 else 1.0
+
+# in a specified folder create files which represent tested needs. For each of these files print the
+# binary classifiers: TP, FP, FN including the (connected/not connected) need names for manual detailed analysis of
+# the classification algorithm.
+def output_statistic_details(outputpath, headers, con_slice_true, con_slice_pred, idx_test):
+    TP, TN, FP, FN = 0,0,0,0
+    need_list = []
+    need_from = idx_test[0][0]
+    need_to = idx_test[1][0]
+    if not os.path.exists(outputpath):
+        os.makedirs(outputpath)
+    summary_file = codecs.open(outputpath + "/_summary.txt",'a+',encoding='utf8')
+    class_label = test_classification(con_slice_true[need_from, need_to], con_slice_pred[need_from, need_to])
+    need_list.append(class_label + ": " + headers[need_to])
+    for i in range(1,len(idx_test[0])):
+        need_from_prev = idx_test[0][i-1]
+        need_from = idx_test[0][i]
+        need_to = idx_test[1][i]
+        if need_from_prev != need_from:
+            create_file_from_sorted_list(outputpath, headers[need_from_prev][6:] + ".txt", need_list)
+            summary_file.write(headers[need_from_prev][6:])
+            summary_file.write(": TP: " + str(TP))
+            summary_file.write(": TN: " + str(TN))
+            summary_file.write(": FP: " + str(FP))
+            summary_file.write(": FN: " + str(FN))
+            summary_file.write(": Precision: " + str(calc_precision(TP, FP)))
+            summary_file.write(": Recall: " + str(calc_recall(TP, FN)))
+            summary_file.write(": Accuracy: " + str(calc_accuracy(TP, TN, FP, FN)) + "\n")
+            need_list = []
+            TP, TN, FP, FN = 0,0,0,0
+        class_label = test_classification(con_slice_true[need_from, need_to], con_slice_pred[need_from, need_to])
+        TP += (1 if class_label == "TP" else 0)
+        TN += (1 if class_label == "TN" else 0)
+        FP += (1 if class_label == "FP" else 0)
+        FN += (1 if class_label == "FN" else 0)
+        if class_label != "TN":
+            need_list.append(class_label + ": " + headers[need_to])
+    create_file_from_sorted_list(outputpath, headers[need_from_prev][6:] + ".txt", need_list)
+    summary_file.write(headers[need_from_prev][6:])
+    summary_file.write(": TP: " + str(TP))
+    summary_file.write(": TN: " + str(TN))
+    summary_file.write(": FP: " + str(FP))
+    summary_file.write(": FN: " + str(FN))
+    summary_file.write(": Precision: " + str(calc_precision(TP, FP)))
+    summary_file.write(": Recall: " + str(calc_recall(TP, FN)))
+    summary_file.write(": Accuracy: " + str(calc_accuracy(TP, TN, FP, FN)) + "\n")
+    summary_file.close()
 
 # execute the rescal algorithm and return a prediction tensor
 def predict_rescal_als(input_tensor, rank):
@@ -319,6 +400,7 @@ if __name__ == '__main__':
     _log.info('Fold size (needs): %d' % fold_size)
 
     # start the cross validation
+    start_time = strftime("%Y-%m-%d_%H%M%S")
     offset = 0
     for f in range(FOLDS):
 
@@ -349,28 +431,38 @@ if __name__ == '__main__':
         P_bin = predict_rescal_connections_by_threshold(P, RESCAL_THRESHOLD, offers, wants, test_needs)
         binary_pred = P_bin[:,:,0][idx_test]
         report1.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
+        output_statistic_details(folder + "/stats/" + start_time + "/rescal", headers,
+                                 GROUND_TRUTH[0].toarray(), P_bin[:,:,0], idx_test)
 
         # second use the 10 highest rated connections for every need to other needs
         _log.info('For RESCAL prediction of %d top rated connections per need: ' % TOPX)
         P_bin = predict_rescal_connections_per_need(P, offers, wants, test_needs, TOPX)
         binary_pred = P_bin[:,:,0][idx_test]
         report2.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
+        output_statistic_details(folder + "/stats/" + start_time + "/rescal_top10", headers,
+                                 GROUND_TRUTH[0].toarray(), P_bin[:,:,0], idx_test)
 
         # third use the 10 most similar needs per need to predict connections
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
         P_bin = predict_rescal_connections_by_need_similarity(A, RESCAL_SIMILARITY_THRESHOLD, offers, wants, test_needs)
         binary_pred = P_bin[:,:,0][idx_test]
         report3.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
+        output_statistic_details(folder + "/stats/" + start_time + "/rescal_similarity", headers,
+                                 GROUND_TRUTH[0].toarray(), P_bin[:,:,0], idx_test)
 
         # execute the cosine similarity link prediction algorithm
         _log.info('For prediction of cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
         binary_pred = cosinus_link_prediciton(test_tensor, offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD)
         report4.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred[idx_test])
+        output_statistic_details(folder + "/stats/" + start_time + "/cosine", headers,
+                                 GROUND_TRUTH[0].toarray(), binary_pred, idx_test)
 
         # execute the weighted cosine similarity link prediction algorithm
         _log.info('For prediction of weigthed cosine similarity between needs with threshold %f:' % COSINE_SIMILARITY_THRESHOLD)
         binary_pred = cosinus_weighted_link_prediction(test_tensor, offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD)
         report5.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred[idx_test])
+        output_statistic_details(folder + "/stats/" + start_time + "/weighted_cosine", headers,
+                                 GROUND_TRUTH[0].toarray(), binary_pred, idx_test)
 
         offset += fold_size
 

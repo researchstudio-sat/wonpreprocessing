@@ -56,7 +56,7 @@ def write_need_output(file, similarity_matrix, headers):
         predicted_entities = [headers[i][6:] + " (" + str(round(similarity_matrix[from_need,i], 4)) + ")" for i in
                               indices if i in needs and i != from_need]
         out.write(headers[from_need][6:] + '\n' + '\n'.join(predicted_entities) + '\n\n')
-
+    out.close()
 
 # This program executes the rescal algorithm and creates several output files to
 # demonstrate some use cases of the algorithm in conjunction with the mail processing.
