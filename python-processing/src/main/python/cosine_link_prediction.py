@@ -26,12 +26,18 @@ def get_candidates(most_common, max_value):
     return add_connection
 
 #add the new connections to the matrix
-def add_connections(candidates, connectionmatrix, new_element_index,checkset):
+def add_transitv_connections(candidates, connectionmatrix, new_element_index, checkset, threshold):
     for item in candidates:
-        postion = int(item[0])
-        if connectionmatrix[new_element_index,postion] == 0 and postion in checkset:
-            connectionmatrix[new_element_index,postion] = 1
-            continue
+        value = item[1]
+        position = int(item[0])
+        if connectionmatrix[new_element_index, position] == 0 and position in checkset:
+            connectionmatrix[new_element_index, position] = 1
+        else:
+            if (value < threshold) and (position != new_element_index):
+                for i, j in enumerate(connectionmatrix[position]):
+                    if j == 1 and connectionmatrix[new_element_index, i] == 0:
+                        connectionmatrix[new_element_index, i] = 1
+
     return connectionmatrix
 
 #Gereate the inverse term frequencies
@@ -53,12 +59,25 @@ def termFrequencies (attributemat):
 #############################
 #Generate the link prediction
 
-# the cosine link prediction algorithm
-def cosinus_link_prediciton(tensormatrix, offers, wants, new_elements, simlimit):
-
+# the cosinus transitiv weighted link prediction algorithm
+#
+# parameters:
+# ============
+# tensormatrix: list of csr_matrix slices describing the tensor
+# offers: indices in the tensor that references all the offers
+# wants: indices in the tensor that references all the wants
+# new_elements: list of need indices for which the prediction should be calculated
+# threshold: if similarity value between an offer and want is lower than threshold then there is a connection predicted
+# transitive_threshold: if similarity between want/want or offer/offer pairs is lower than "threshold"
+#   connections to transitive connected needs are taken if their need similarity is lower than "transitive_threshold" in
+#   comparison to the origin need. To get transitive predictions set "transitive_threshold" > "threshold" (e.g. set
+#   "transitive_threshold" value to 0 for no transitive connection prediction).
+# weighted: True if the attribute terms should be weighted
+def cosinus_link_prediciton(tensormatrix, allneeds, offers, wants, new_elements, threshold, transitive_threshold,
+                            weighted):
     # slice 2 of the tensor are the attributes
     attributemat = tensormatrix[2]
-    attributemat=attributemat.toarray()
+    attributemat = attributemat.toarray()
 
     # slice 0 of the tensor are the connections
     connectionmat = tensormatrix[0]
@@ -70,42 +89,15 @@ def cosinus_link_prediciton(tensormatrix, offers, wants, new_elements, simlimit)
         else:
             checkset = offers
 
-        #get the most commen elements
-        most_commen_elements = most_common_elements(checkset,attributemat,new_element)
-
-        #get the candidates for the link prediction
-        candidates = get_candidates(most_commen_elements,simlimit)
-        newconnectionmat = add_connections(candidates, connectionmat,new_element,checkset)
-
-    return newconnectionmat
-
-# the weighted cosine link prediction algorithm
-def cosinus_weighted_link_prediction(tensormatrix, offers, wants, new_elements, simlimit):
-
-    # slice 2 of the tensor are the attributes
-    attributemat = tensormatrix[2]
-    attributemat=attributemat.toarray()
-
-    # slice 0 of the tensor are the connections
-    connectionmat = tensormatrix[0]
-    connectionmat = connectionmat.toarray()
-
-    for new_element in new_elements:
-        if new_element in offers:
-            checkset = wants
-        else:
-            checkset = offers
-
-        #get the weighted attribut matrix
-        weighted= termFrequencies(attributemat)
-        weightedmat = weighted * attributemat
-
+        # get the weighted attribut matrix
+        if weighted:
+            weighted = termFrequencies(attributemat)
+            attributemat = weighted * attributemat
 
         #get the most comment elements
-        most_common_elements_weighted = most_common_elements(checkset,weightedmat , new_element)
+        most_common_elements_weighted = most_common_elements(allneeds, attributemat, new_element)
         #get the candidates for the link prediction
-        candidates = get_candidates(most_common_elements_weighted,simlimit)
-        newconnectionmat = add_connections(candidates, connectionmat,new_element,checkset)
+        candidates = get_candidates(most_common_elements_weighted, threshold)
+        newconnectionmat = add_transitv_connections(candidates, connectionmat, new_element, checkset, transitive_threshold)
 
     return newconnectionmat
-

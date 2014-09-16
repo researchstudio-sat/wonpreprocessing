@@ -1,7 +1,7 @@
 wonpreprocessing
 ================
 Preprocessing of mail input for won matching using GATE. The MailProcessing
-Java program calls a Gate application (in resources/gate) to annotate mail content.
+Java program calls a Gate application (in src/main/resources/gate) to annotate mail content.
 Needs are created from WANT and OFFER mails and connections between them can
 be specified in a connections file.
 
