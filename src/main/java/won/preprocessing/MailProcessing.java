@@ -25,8 +25,12 @@ import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.Charset;
 
 /**
  * Created by hfriedrich on 26.06.2014.
@@ -42,7 +46,7 @@ import java.io.IOException;
 public class MailProcessing
 {
   private static final Logger logger = LoggerFactory.getLogger(MailProcessing.class);
-  private static final String GATE_APP_PATH = "resources/gate/application.xgapp";
+  private static final String GATE_APP_PATH = "src/main/resources/gate/application.xgapp";
 
   private static final String FROM_PREFIX = "From: ";
   private static final String TO_PREFIX = "To: ";
@@ -106,7 +110,7 @@ public class MailProcessing
 
       logger.debug("processing mail file: {} ", file);
       FileInputStream fis = null;
-      FileWriter fw = null;
+      Writer fw = null;
 
       try {
         fis = new FileInputStream(file);
@@ -128,7 +132,10 @@ public class MailProcessing
         File outfile = new File(outputFolder + "/" + cleanFileName(file.getName()));
         logger.debug("writing output file: {}", outfile.getAbsolutePath());
         logger.debug("- mail subject: {}", parser.getSubject());
-        fw = new FileWriter(outfile);
+        FileOutputStream outputStream = new FileOutputStream(outfile);
+
+        // Enforce UTF-8 when writing files. Non UTF-8 files will be reported.
+        fw = new OutputStreamWriter(outputStream, Charset.forName("UTF-8"));
 
         fw.append(FROM_PREFIX + parser.getFrom() + "\n");
         fw.append(TO_PREFIX + parser.getTo() + "\n");
@@ -138,6 +145,9 @@ public class MailProcessing
 
       } catch (MessagingException me) {
         logger.error("Error opening mail file: " + file.getAbsolutePath(), me);
+      } catch (IOException ioe) {
+        logger.error("Error writing file: " + file.getAbsolutePath(), ioe);
+        System.err.println("Error writing file: " + file.getAbsolutePath());
       } catch (Exception e) {
         logger.error("Error parsing mail file: " + file.getAbsolutePath(), e);
       } finally {
