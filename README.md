@@ -36,5 +36,11 @@ R:
 * After execution of "python-processing/src/main/python/generate_rescal_output.py" this output can be
 visualized/analyzed with R using "R-evaluation/Rgraphdraw.R" script
 
+FEATURE_EXTRACTION:
+* needs python (tested on 3.4), numpy, scipy, scikit-learn and nltk
+* needs following nltk dictionaries and corpora: wordnet, maxent_treebank_pos_tagger, punkt
+    - donwload by running: "import nltk; nltk.download()" from console, which runs a downloader
+* execute "python-processing/src/main/python/feature_extraction.py" for printing the relevant keywords found in documents
+* Soon will be able to enhance rescal tensor with new data slice containing extracted features
 
 
