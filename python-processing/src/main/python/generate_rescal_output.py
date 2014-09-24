@@ -27,22 +27,18 @@ def write_term_output(file, predicted_tensor, headers):
     out.close()
 
 # write a file with the original and predicted connections between each need
-def write_connection_output(file, input_tensor, predicted_tensor, headers):
+def write_connection_output(file, input_tensor, predicted_connections, headers):
     _log.info('Writing connection prediction output file: ' + file)
     out = codecs.open(file, 'w+', encoding='utf8')
     needs = util.need_indices(headers)
     for from_need in needs:
-        darr = np.array(predicted_tensor[from_need,:,0])
-        indices = reversed((np.argsort(darr))[-20:])
-        indices = [i for i in indices if darr[i] > 0.1 and i in needs]
+        darr = np.array(predicted_connections[from_need,:])
+        indices = [i for i in needs if darr[i] == 1.0 and input_tensor[0].getrow(from_need).getcol(i)[0,0] == 0.0]
         if len(indices) > 0:
             out.write('\n')
             out.write(headers[from_need][6:] + '\n')
         for to_need in indices:
-            newPrediction = ("NEW_PREDICTION: " if input_tensor[0].getrow(from_need).getcol(to_need)[0,0] == 0.0
-                             else "")
-            predicted_entities = newPrediction + headers[to_need] + " (" + str(round(darr[i], 2)) + ")"
-            out.write(predicted_entities + '\n')
+            out.write(headers[to_need][6:] + '\n')
     out.close()
 
 # write a file with the top X most similar needs for each need
@@ -78,17 +74,17 @@ if __name__ == '__main__':
     wants = util.want_indices(input_tensor, headers)
 
     # execute rescal algorithm
-    RANK = 100
+    RANK = 50
     P, A, R = util.predict_rescal_als(input_tensor, RANK)
 
     # write output files
     write_term_output(folder + "/outterm.txt", P, headers)
-    write_connection_output(folder + "/outconn.txt", input_tensor, P, headers)
 
     # write output file for further R processing
     P_bin = util.predict_rescal_connections_by_threshold(P, 0.05, offers, wants, needs)
     _log.info('Writing predicted connection slice output file: ' + folder + "/outcon.mtx")
     mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
+    write_connection_output(folder + "/outconn.txt", input_tensor, P_bin[:,:,0], headers)
 
     # write need similarity output file - use only attribute slice, not connection or classification
     P, A, R = util.predict_rescal_als([input_tensor[2]], RANK)
