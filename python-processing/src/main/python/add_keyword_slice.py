@@ -18,7 +18,7 @@ if len(sys.argv) < 3:
 
 doc_path = sys.argv[1]
 rescal_path = sys.argv[2]
-if len(sys.argv) == 4 and sys.argv[3].lower() in {'y', 'yes', 't', 'true'}:
+if len(sys.argv) == 4 and sys.argv[3].lower() in set(('y', 'yes', 't', 'true')):
     print("Will not use POS tagging")
     tokenizer = lemma_tokenizer
 else:
