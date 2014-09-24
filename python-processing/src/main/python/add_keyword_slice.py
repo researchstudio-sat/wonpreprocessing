@@ -25,18 +25,13 @@ else:
     print("Will use POS tagging.")
     tokenizer = PosTagLemmaTokenizer()
 
-# documents = [f.rstrip('.eml') for f in listdir(doc_path) if
-# isfile(join(doc_path, f)) and f.endswith('.eml')]
-
-
-# Manual approach for unicode decode errors
 documents = []
 for f in listdir(doc_path):
     if isfile(join(doc_path, f)) and f.endswith('.eml'):
         try:
             documents.append(six.text_type(f.rstrip('.eml')))
         except UnicodeDecodeError:
-            pass
+            print("Skipping file: ", f)
 
 print('Loaded ', len(documents), ' files from path: ', doc_path)
 
@@ -84,9 +79,6 @@ offset_matrix = coo_matrix((data.data, (offset_row, offset_col)))
 
 with codecs.open(rescal_path + '/headers.txt', 'w', encoding='utf8') as f:
     f.write('\n'.join(headers))
-
-# with open(rescal_path + '/headers.txt', mode='w', encoding='utf-8') as f:
-# f.write('\n'.join(headers))
 
 mmwrite(rescal_path + '/keywords_slice.mtx', offset_matrix)
 
