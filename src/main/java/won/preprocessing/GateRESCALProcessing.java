@@ -110,7 +110,7 @@ public class GateRESCALProcessing
       Corpus corpus = Factory.newCorpus("Transient Gate Corpus");
       for (int i = bulk; i < maxFilesPerCorpus + bulk && i < folder.listFiles().length; i++) {
         File file = folder.listFiles()[i];
-        if (!file.isDirectory()) {
+        if (!file.isDirectory() && !file.isHidden()) {
           corpus.add(Factory.newDocument(file.toURI().toURL()));
         }
       }
