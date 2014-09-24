@@ -8,15 +8,22 @@ from scipy.sparse.coo import coo_matrix
 from scipy.io import mmwrite
 import six
 
-from feature_extraction import vectorize_and_transform, apply_threshold
+from feature_extraction import vectorize_and_transform, apply_threshold, \
+    lemma_tokenizer, PosTagLemmaTokenizer
 from evaluate_link_prediction import read_input_tensor
 
 
-if len(sys.argv) != 3:
-    raise Exception("ARGUMENTS: <documents dir> <rescal_dir>")
+if len(sys.argv) < 3:
+    raise Exception("ARGS: <documents dir> <rescal dir> [<skip pos tagging>]")
 
 doc_path = sys.argv[1]
 rescal_path = sys.argv[2]
+if len(sys.argv) == 4 and sys.argv[3].lower() in {'y', 'yes', 't', 'true'}:
+    print("Will not use POS tagging")
+    tokenizer = lemma_tokenizer
+else:
+    print("Will use POS tagging.")
+    tokenizer = PosTagLemmaTokenizer()
 
 # documents = [f.rstrip('.eml') for f in listdir(doc_path) if
 # isfile(join(doc_path, f)) and f.endswith('.eml')]
@@ -79,7 +86,7 @@ with codecs.open(rescal_path + '/headers.txt', 'w', encoding='utf8') as f:
     f.write('\n'.join(headers))
 
 # with open(rescal_path + '/headers.txt', mode='w', encoding='utf-8') as f:
-#     f.write('\n'.join(headers))
+# f.write('\n'.join(headers))
 
 mmwrite(rescal_path + '/keywords_slice.mtx', offset_matrix)
 
