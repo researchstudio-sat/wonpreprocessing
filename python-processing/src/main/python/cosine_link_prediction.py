@@ -3,6 +3,7 @@ __author__ = 'bivanschitz'
 
 from scipy.spatial.distance import pdist, cosine, matching, dice
 from math import log10
+from tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE
 
 #FUNCTIONS
 
@@ -76,11 +77,11 @@ def termFrequencies (attributemat):
 def cosinus_link_prediciton(tensormatrix, allneeds, offers, wants, new_elements, threshold, transitive_threshold,
                             weighted):
     # slice 2 of the tensor are the attributes
-    attributemat = tensormatrix[2]
+    attributemat = tensormatrix[ATTR_SUBJECT_SLICE]
     attributemat = attributemat.toarray()
 
     # slice 0 of the tensor are the connections
-    connectionmat = tensormatrix[0]
+    connectionmat = tensormatrix[CONNECTION_SLICE]
     connectionmat = connectionmat.toarray()
 
     for new_element in new_elements:

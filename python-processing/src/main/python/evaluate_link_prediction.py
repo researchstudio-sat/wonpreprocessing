@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+__author__ = 'hfriedrich'
+
 import logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -7,79 +9,16 @@ logging.basicConfig(level=logging.INFO,
 _log = logging.getLogger('Mail Example')
 
 import sys
+import os
 import codecs
 import numpy as np
-import sklearn.metrics as m
-import os
-from numpy import dot, zeros
-from numpy.random import shuffle
-from scipy.io import mmread
 from scipy.sparse import csr_matrix
-from scipy.spatial.distance import pdist
-from scipy.spatial.distance import squareform
-from rescal import rescal_als
+import sklearn.metrics as m
 from time import strftime
 from cosine_link_prediction import cosinus_link_prediciton
-
-# read the input tensor data (data-0.mtx ... data-3.mtx) and
-# the headers file (headers.txt) from the folder
-def read_input_tensor(folder):
-    header_file =  folder + "/headers.txt"
-    _log.info("Read header input file: " + header_file)
-    input = codecs.open(header_file,'r',encoding='utf8')
-    headers = input.read().splitlines()
-    K = []
-    for i in range(0,3):
-        data_file = folder + "/data-" + str(i) + ".mtx"
-        _log.info("Read the data input file: " + data_file )
-        matrix = mmread(data_file)
-        K.append(csr_matrix(matrix))
-    input.close()
-    return K, headers
-
-# return a tuple with two lists holding need indices that represent connections
-# between these needs, symmetric connection are only represented once
-def connection_indices(tensor):
-    nz = tensor[0].nonzero()
-    nz0 = [nz[0][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
-    nz1 = [nz[1][i] for i in range(len(nz[0])) if nz[0][i] <= nz[1][i]]
-    indices = [i for i in range(len(nz0))]
-    shuffle(indices)
-    ret0 = [nz0[i] for i in indices]
-    ret1 = [nz1[i] for i in indices]
-    nzsym = (ret0, ret1)
-    return nzsym
-
-# return a list of indices which refer to rows/columns of needs in the tensor
-def need_indices(headers):
-    needs = [i for i in range(0, len(headers)) if (headers[i].startswith('Need:'))]
-    return needs
-
-# return a list of indices which refer to rows/columns of needs in the tensor that were checked manually for
-# connections to other needs.
-def manually_checked_needs(headers, connection_file):
-    _log.info("Read connections input file: " + connection_file)
-    file = codecs.open(connection_file,'r',encoding='utf8')
-    lines = file.read().splitlines()
-    checked_need_names = ["Need: " + lines[0]] + ["Need: " + lines[i] for i in range(1,len(lines))
-        if lines[i-1] == "" and lines[i] != ""]
-    checked_needs = [i for i in need_indices(headers) if headers[i] in checked_need_names]
-    file.close()
-    return checked_needs
-
-# return a list of indices which refer to rows/columns of needs of type OFFER in the tensor
-def offer_indices(tensor, headers):
-    needs = need_indices(headers)
-    offer_attr_idx = headers.index("Attr: OFFER")
-    offers = [need for need in needs if (tensor[1][need, offer_attr_idx] == 1)]
-    return offers
-
-# return a list of indices which refer to rows/columns of needs of type WANT in the tensor
-def want_indices(tensor, headers):
-    needs = need_indices(headers)
-    want_attr_idx = headers.index("Attr: WANT")
-    wants = [need for need in needs if (tensor[1][need, want_attr_idx] == 1)]
-    return wants
+from tensor_utils import CONNECTION_SLICE, connection_indices, manually_checked_needs, \
+    read_input_tensor, need_indices, want_indices, offer_indices, predict_rescal_als, \
+    predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -90,7 +29,7 @@ def need_connection_indices(all_needs, test_needs):
         allindices[0].extend(fromneeds)
         allindices[1].extend(toneeds)
     indices = [i for i in range(len(allindices[0]))]
-    shuffle(indices)
+    np.random.shuffle(indices)
     ret0 = [allindices[0][i] for i in indices]
     ret1 = [allindices[1][i] for i in indices]
     return (ret0, ret1)
@@ -99,8 +38,8 @@ def need_connection_indices(all_needs, test_needs):
 def mask_idx_connections(tensor, indices):
     slices = [slice.copy().toarray() for slice in tensor]
     for idx in range(len(indices[0])):
-        slices[0][indices[0][idx],indices[1][idx]] = 0
-        slices[0][indices[1][idx],indices[0][idx]] = 0
+        slices[CONNECTION_SLICE][indices[0][idx],indices[1][idx]] = 0
+        slices[CONNECTION_SLICE][indices[1][idx],indices[0][idx]] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
@@ -108,20 +47,20 @@ def mask_idx_connections(tensor, indices):
 def mask_need_connections(tensor, needs):
     slices = [slice.copy().toarray() for slice in tensor]
     for need in needs:
-        slices[0][need,:] = zeros(tensor[0].shape[0])
-        slices[0][:,need] = zeros(tensor[0].shape[0])
+        slices[CONNECTION_SLICE][need,:] = np.zeros(tensor[CONNECTION_SLICE].shape[0])
+        slices[CONNECTION_SLICE][:,need] = np.zeros(tensor[CONNECTION_SLICE].shape[0])
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
 # mask all connections but a number of X for each need
 def mask_all_but_X_connections_per_need(tensor, keep_x):
     slices = [slice.copy().toarray() for slice in tensor]
-    for row in set(tensor[0].nonzero()[0]):
-        mask_idx = [col for col in range(len(slices[0][row,:])) if slices[0][row,col] == 1.0]
-        shuffle(mask_idx)
+    for row in set(tensor[CONNECTION_SLICE].nonzero()[0]):
+        mask_idx = [col for col in range(len(slices[CONNECTION_SLICE][row,:])) if slices[CONNECTION_SLICE][row,col] == 1.0]
+        np.random.shuffle(mask_idx)
         for col in mask_idx[keep_x:]:
-            slices[0][row,col] = 0
-            slices[0][col,row] = 0
+            slices[CONNECTION_SLICE][row,col] = 0
+            slices[CONNECTION_SLICE][col,row] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
@@ -211,76 +150,6 @@ def output_statistic_details(outputpath, headers, con_slice_true, con_slice_pred
     summary_file.write(": Accuracy: " + str(calc_accuracy(TP, TN, FP, FN)) + "\n")
     summary_file.close()
 
-# execute the rescal algorithm and return a prediction tensor
-def predict_rescal_als(input_tensor, rank):
-    _log.info('start rescal processing ...')
-    _log.info('Datasize: %d x %d x %d | Rank: %d' % (
-        input_tensor[0].shape + (len(input_tensor),) + (rank,))
-    )
-    A, R, _, _, _ = rescal_als(
-        input_tensor, rank, init='nvecs', conv=1e-3,
-        lambda_A=0, lambda_R=0, compute_fit='true'
-    )
-    n = A.shape[0]
-    P = zeros((n, n, len(R)))
-    for k in range(len(R)):
-        P[:, :, k] = dot(A, dot(R[k], A.T))
-    return P, A, R
-
-# for rescal algorithm output predict the X top rated connections for each of the test_needs
-def predict_rescal_connections_per_need(P, all_offers, all_wants, test_needs, num_predictions):
-    binary_prediction = zeros(P.shape)
-    for need in test_needs:
-        if need in all_offers:
-            all_needs = all_wants
-        elif need in all_wants:
-            all_needs = all_offers
-        else:
-            continue
-        darr = np.array(P[need,:,0][all_needs])
-        pred_indices = (np.argsort(darr))[-num_predictions:]
-        for x in np.array(all_needs)[pred_indices]:
-            binary_prediction[need, x, 0] = 1
-    return binary_prediction
-
-# create a similarity matrix of needs (and attributes)
-def similarity_ranking(A):
-    dist = squareform(pdist(A, metric='cosine'))
-    return dist
-
-# for rescal algorithm output predict connections by fixed threshold for each of the test_needs based on the
-# similarity of latent need clusters (higher threshold means higher recall)
-def predict_rescal_connections_by_need_similarity(P, A, threshold, all_offers, all_wants, test_needs):
-    S = similarity_ranking(A)
-    binary_prediction = zeros(P.shape)
-    for need in test_needs:
-        if need in all_offers:
-            all_needs = all_wants
-        elif need in all_wants:
-            all_needs = all_offers
-        else:
-            continue
-
-        for x in all_needs:
-            if S[need,x] < threshold:
-                binary_prediction[need, x, 0] = 1
-    return binary_prediction
-
-# for rescal algorithm output predict connections by fixed threshold (higher threshold means higher precision)
-def predict_rescal_connections_by_threshold(P, threshold, all_offers, all_wants, test_needs):
-    binary_prediction = zeros(P.shape)
-    for need in test_needs:
-        if need in all_offers:
-            all_needs = all_wants
-        elif need in all_wants:
-            all_needs = all_offers
-        else:
-            continue
-        for x in all_needs:
-            if P[need,x,0] >= threshold:
-                binary_prediction[need,x,0] = 1
-    return binary_prediction
-
 # calculate the optimal threshold by maximizing the f-score measure
 def get_optimal_threshold(recall, precision, threshold, f_beta=1):
     max_f_score = 0
@@ -344,14 +213,16 @@ class EvaluationReport:
 #
 # Input parameters:
 # argv[1]: folder with the following files:
-# - tensor matrix data file name
-# - headers file name
-# - connections file name
+# - tensor matrix data files
+# - headers file
+# - connections file
 if __name__ == '__main__':
 
     # load the tensor input data
     folder = sys.argv[1]
-    input_tensor, headers = read_input_tensor(folder)
+    data_input = [folder + "/data-0.mtx", folder + "/data-1.mtx", folder + "/data-2.mtx"]
+    header_input = folder + "/headers.txt"
+    input_tensor, headers = read_input_tensor(header_input, data_input)
     checked_needs = manually_checked_needs(headers, folder + "/connections.txt")
     GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
 
@@ -400,7 +271,7 @@ if __name__ == '__main__':
     _log.info('For testing use only needs that were manually checked for connections')
     # checked needs only
     needs = checked_needs
-    shuffle(needs)
+    np.random.shuffle(needs)
     # checked connections only, already shuffled
     connections = need_connection_indices(need_indices(headers), checked_needs)
 
@@ -417,7 +288,7 @@ if __name__ == '__main__':
     wants = want_indices(input_tensor, headers)
     need_fold_size = int(len(needs) / FOLDS)
     connection_fold_size = int(len(connections[0]) / FOLDS)
-    AUC_test = zeros(FOLDS)
+    AUC_test = np.zeros(FOLDS)
     report1 = EvaluationReport(F_BETA)
     report2 = EvaluationReport(F_BETA)
     report3 = EvaluationReport(F_BETA)
@@ -462,8 +333,8 @@ if __name__ == '__main__':
         P, A, R = predict_rescal_als(test_tensor, RANK)
 
         # evaluate the predictions
-        prediction = np.round_(P[:,:,0][idx_test], decimals=5)
-        precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[0].toarray()[idx_test], prediction)
+        prediction = np.round_(P[:,:,CONNECTION_SLICE][idx_test], decimals=5)
+        precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], prediction)
         optimal_threshold = get_optimal_threshold(recall, precision, threshold, F_BETA)
         _log.info('optimal RESCAL threshold would be ' + str(optimal_threshold) +
                   ' (for maximum F' + str(F_BETA) + '-score)')
@@ -474,21 +345,21 @@ if __name__ == '__main__':
         # use a fixed threshold to compute several measures
         _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
         P_bin = predict_rescal_connections_by_threshold(P, RESCAL_THRESHOLD, offers, wants, test_needs)
-        binary_pred = P_bin[:,:,0][idx_test]
-        report1.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
+        binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
+        report1.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
             output_statistic_details(folder + "/stats/" + start_time + "/rescal", headers,
-                                 GROUND_TRUTH[0].toarray(), P_bin[:,:,0], idx_test)
+                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
 
         # use the most similar needs per need to predict connections
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
         P_bin = predict_rescal_connections_by_need_similarity(P, A, RESCAL_SIMILARITY_THRESHOLD, offers, wants,
         test_needs)
-        binary_pred = P_bin[:,:,0][idx_test]
-        report2.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred)
+        binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
+        report2.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
             output_statistic_details(folder + "/stats/" + start_time + "/rescal_similarity", headers,
-                                 GROUND_TRUTH[0].toarray(), P_bin[:,:,0], idx_test)
+                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
 
         # execute the cosine similarity link prediction algorithm
         _log.info('For prediction of cosine similarity between needs with thresholds: %f, %f'
@@ -496,20 +367,20 @@ if __name__ == '__main__':
         binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers),
                                               offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
                                               COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
-        report3.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred[idx_test])
+        report3.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
             output_statistic_details(folder + "/stats/" + start_time + "/cosine", headers,
-                                 GROUND_TRUTH[0].toarray(), binary_pred, idx_test)
+                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
 
         # execute the weighted cosine similarity link prediction algorithm
         _log.info('For prediction of weigthed cosine similarity between needs with thresholds %f, %f:' %
                   (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
         binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers), offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
                                               COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, True)
-        report4.add_evaluation_data(GROUND_TRUTH[0].toarray()[idx_test], binary_pred[idx_test])
+        report4.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
             output_statistic_details(folder + "/stats/" + start_time + "/weighted_cosine", headers,
-                                 GROUND_TRUTH[0].toarray(), binary_pred, idx_test)
+                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
 
         # end of fold loop
 

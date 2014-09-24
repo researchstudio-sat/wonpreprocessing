@@ -1,22 +1,25 @@
 #!/usr/bin/env python
 
-import logging
+__author__ = 'hfriedrich'
 
-import evaluate_link_prediction as util
+import logging
 
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger('Mail Example')
 
 import sys
+import codecs
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.io import mmwrite
-import codecs
+from tensor_utils import need_indices, offer_indices, want_indices, read_input_tensor, predict_rescal_als, \
+    predict_rescal_connections_by_threshold, similarity_ranking
+
 
 # write a file with the top X term attribute predictions for every need
 def write_term_output(file, predicted_tensor, headers):
     TOPX = 10
-    needs = util.need_indices(headers)
+    needs = need_indices(headers)
     _log.info('Writing term attribute prediction output file: ' + file)
     out = codecs.open(file, 'w+', encoding='utf8')
     for need in needs:
@@ -30,7 +33,7 @@ def write_term_output(file, predicted_tensor, headers):
 def write_connection_output(file, input_tensor, predicted_connections, headers):
     _log.info('Writing connection prediction output file: ' + file)
     out = codecs.open(file, 'w+', encoding='utf8')
-    needs = util.need_indices(headers)
+    needs = need_indices(headers)
     for from_need in needs:
         darr = np.array(predicted_connections[from_need,:])
         indices = [i for i in needs if darr[i] == 1.0 and input_tensor[0].getrow(from_need).getcol(i)[0,0] == 0.0]
@@ -46,7 +49,7 @@ def write_need_output(file, similarity_matrix, headers):
     TOPX = 20
     _log.info('Writing need similarity output file: ' + file)
     out = codecs.open(file, 'w+', encoding='utf8')
-    needs = util.need_indices(headers)
+    needs = need_indices(headers)
     for from_need in needs:
         indices = (np.argsort(similarity_matrix[from_need,:]))[:TOPX]
         predicted_entities = [headers[i][6:] + " (" + str(round(similarity_matrix[from_need,i], 4)) + ")" for i in
@@ -68,27 +71,29 @@ if __name__ == '__main__':
 
     # load the tensor input data
     folder = sys.argv[1]
-    input_tensor, headers = util.read_input_tensor(folder)
-    needs = util.need_indices(headers)
-    offers = util.offer_indices(input_tensor, headers)
-    wants = util.want_indices(input_tensor, headers)
+    data_input = [folder + "/data-0.mtx", folder + "/data-1.mtx", folder + "/data-2.mtx"]
+    header_input = folder + "/headers.txt"
+    input_tensor, headers = read_input_tensor(header_input, data_input)
+    needs = need_indices(headers)
+    offers = offer_indices(input_tensor, headers)
+    wants = want_indices(input_tensor, headers)
 
     # execute rescal algorithm
     RANK = 50
-    P, A, R = util.predict_rescal_als(input_tensor, RANK)
+    P, A, R = predict_rescal_als(input_tensor, RANK)
 
     # write output files
     write_term_output(folder + "/outterm.txt", P, headers)
 
     # write output file for further R processing
-    P_bin = util.predict_rescal_connections_by_threshold(P, 0.05, offers, wants, needs)
+    P_bin = predict_rescal_connections_by_threshold(P, 0.05, offers, wants, needs)
     _log.info('Writing predicted connection slice output file: ' + folder + "/outcon.mtx")
     mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
     write_connection_output(folder + "/outconn.txt", input_tensor, P_bin[:,:,0], headers)
 
     # write need similarity output file - use only attribute slice, not connection or classification
-    P, A, R = util.predict_rescal_als([input_tensor[2]], RANK)
-    S = util.similarity_ranking(A)
+    P, A, R = predict_rescal_als([input_tensor[2]], RANK)
+    S = similarity_ranking(A)
     write_need_output(folder + "/outneed.txt", S, headers)
 
 

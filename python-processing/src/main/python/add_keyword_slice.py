@@ -10,7 +10,7 @@ import six
 
 from feature_extraction import vectorize_and_transform, apply_threshold, \
     lemma_tokenizer, PosTagLemmaTokenizer
-from evaluate_link_prediction import read_input_tensor
+from tensor_utils import read_input_tensor
 
 
 if len(sys.argv) < 3:
@@ -44,7 +44,7 @@ data = apply_threshold(data, 0.3)
 # TODO: filter features and filenames based on whether their entries survived
 
 print('Reading tensor')
-tensor, headers = read_input_tensor(rescal_path)
+tensor, headers = read_input_tensor(rescal_path + "/headers.txt", [])
 
 NEED_STR = 'Need: '
 ATTR_STR = 'Attr: '
