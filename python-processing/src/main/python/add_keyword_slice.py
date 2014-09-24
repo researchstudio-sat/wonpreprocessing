@@ -1,3 +1,4 @@
+import codecs
 import sys
 from os import listdir
 from os.path import isfile, join
@@ -9,6 +10,8 @@ from scipy.io import mmwrite
 from feature_extraction import vectorize_and_transform, apply_threshold
 from evaluate_link_prediction import read_input_tensor
 
+import six
+
 
 if len(sys.argv) != 3:
     raise Exception("ARGUMENTS: <documents dir> <rescal_dir>")
@@ -16,8 +19,20 @@ if len(sys.argv) != 3:
 doc_path = sys.argv[1]
 rescal_path = sys.argv[2]
 
-documents = [f.rstrip('.eml') for f in listdir(doc_path) if
-             isfile(join(doc_path, f)) and f.endswith('.eml')]
+# documents = [f.rstrip('.eml') for f in listdir(doc_path) if
+#              isfile(join(doc_path, f)) and f.endswith('.eml')]
+
+
+# Manual approach for unicode decode errors
+documents = []
+for f in listdir(doc_path):
+    if isfile(join(doc_path, f)) and f.endswith('.eml'):
+        try:
+            documents.append(six.text_type(f.rstrip('.eml')))
+        except UnicodeDecodeError:
+            pass
+
+
 print('Loaded ', len(documents), ' files from path: ', doc_path)
 
 print('Extracting features')
@@ -61,8 +76,11 @@ offset_col = np.array([feature_index[features[i]] for i in data.col])
 
 offset_matrix = coo_matrix((data.data, (offset_row, offset_col)))
 
-with open(rescal_path + '/headers.txt', mode='w', encoding='utf-8') as f:
+with codecs.open(rescal_path + '/headers.txt','w',encoding='utf8') as f:
     f.write('\n'.join(headers))
+
+# with open(rescal_path + '/headers.txt', mode='w', encoding='utf-8') as f:
+#     f.write('\n'.join(headers))
 
 mmwrite(rescal_path + '/keywords_slice.mtx', offset_matrix)
 

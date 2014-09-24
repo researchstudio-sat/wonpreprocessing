@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk
 from nltk.stem import WordNetLemmatizer
 
+import six
 
 _wnl = WordNetLemmatizer()
 
@@ -92,4 +93,4 @@ if __name__ == '__main__':
         if di != last_di:
             print('\n\n', files[di])
             last_di = di
-        print(features[ki], end=' | ')
+        six.print_(features[ki], end=' | ')
