@@ -6,11 +6,10 @@ from os.path import isfile, join
 import numpy as np
 from scipy.sparse.coo import coo_matrix
 from scipy.io import mmwrite
+import six
 
 from feature_extraction import vectorize_and_transform, apply_threshold
 from evaluate_link_prediction import read_input_tensor
-
-import six
 
 
 if len(sys.argv) != 3:
@@ -20,7 +19,7 @@ doc_path = sys.argv[1]
 rescal_path = sys.argv[2]
 
 # documents = [f.rstrip('.eml') for f in listdir(doc_path) if
-#              isfile(join(doc_path, f)) and f.endswith('.eml')]
+# isfile(join(doc_path, f)) and f.endswith('.eml')]
 
 
 # Manual approach for unicode decode errors
@@ -31,7 +30,6 @@ for f in listdir(doc_path):
             documents.append(six.text_type(f.rstrip('.eml')))
         except UnicodeDecodeError:
             pass
-
 
 print('Loaded ', len(documents), ' files from path: ', doc_path)
 
@@ -50,11 +48,13 @@ NEED_STR = 'Need: '
 ATTR_STR = 'Attr: '
 LEN = len(NEED_STR)
 
-document_index = {}
+document_index, feature_index = {}, {}
 headers_cursor = 1
 for header in headers:
     if header.startswith(NEED_STR):
         document_index[header[LEN:]] = headers_cursor
+    elif header.startswith(ATTR_STR):
+        feature_index[header[LEN:]] = headers_cursor
     headers_cursor += 1
 
 for filename in documents:
@@ -64,7 +64,6 @@ for filename in documents:
         document_index[filename] = headers_cursor
         headers_cursor += 1
 
-feature_index = {}
 for feature in features:
     # print('Adding ATTR at index (', headers_cursor, '): ', feature)
     headers.append(ATTR_STR + feature)
@@ -76,7 +75,7 @@ offset_col = np.array([feature_index[features[i]] for i in data.col])
 
 offset_matrix = coo_matrix((data.data, (offset_row, offset_col)))
 
-with codecs.open(rescal_path + '/headers.txt','w',encoding='utf8') as f:
+with codecs.open(rescal_path + '/headers.txt', 'w', encoding='utf8') as f:
     f.write('\n'.join(headers))
 
 # with open(rescal_path + '/headers.txt', mode='w', encoding='utf-8') as f:

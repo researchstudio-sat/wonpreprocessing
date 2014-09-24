@@ -10,15 +10,11 @@ import six
 
 _wnl = WordNetLemmatizer()
 
-_filter_threshold = np.vectorize(lambda x, threshold: x if x > threshold else 0,
-                                 excluded={'threshold'})
-
-
 def _clean_mail(doc):
     """Return only the Subject and Content parts from the mail."""
     subject, content = False, False
     accepted_lines = []
-    for line in doc.splitlines(keepends=True):
+    for line in doc.splitlines():
         l = line.lower()
         if l.startswith('subject'):
             subject, content = True, False
@@ -28,7 +24,7 @@ def _clean_mail(doc):
             line = line.lstrip('content')
         if subject or content:
             accepted_lines.append(line.strip())
-    return ''.join(accepted_lines)
+    return '\n'.join(accepted_lines)
 
 
 def lemma_tokenizer(doc):
