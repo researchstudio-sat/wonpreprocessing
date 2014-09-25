@@ -16,7 +16,7 @@ from scipy.sparse import csr_matrix
 import sklearn.metrics as m
 from time import strftime
 from cosine_link_prediction import cosinus_link_prediciton
-from tensor_utils import CONNECTION_SLICE, connection_indices, manually_checked_needs, \
+from tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE, connection_indices, manually_checked_needs, \
     read_input_tensor, need_indices, want_indices, offer_indices, predict_rescal_als, \
     predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold
 
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     RESCAL_THRESHOLD = 0.005
 
     # threshold for RESCAL algorithm need similarity, higher threshold means higher recall
-    RESCAL_SIMILARITY_THRESHOLD = 0.08
+    RESCAL_SIMILARITY_THRESHOLD = 0.03
 
     # thresholds for cosine similarity link prediction algorithm, higher threshold means higher recall.
     # set transitive threshold < threshold to avoid transitive predictions
@@ -330,7 +330,8 @@ if __name__ == '__main__':
         _log.info('------------------------------')
 
         # execute the rescal algorithm
-        P, A, R = predict_rescal_als(test_tensor, RANK)
+        # (dont use the NeedType slice for calculation in RESCAL right now)
+        P, A, R = predict_rescal_als([test_tensor[CONNECTION_SLICE],test_tensor[ATTR_SUBJECT_SLICE]], RANK)
 
         # evaluate the predictions
         prediction = np.round_(P[:,:,CONNECTION_SLICE][idx_test], decimals=5)
