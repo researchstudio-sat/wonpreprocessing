@@ -18,7 +18,7 @@ from time import strftime
 from cosine_link_prediction import cosinus_link_prediciton
 from tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE, connection_indices, manually_checked_needs, \
     read_input_tensor, need_indices, want_indices, offer_indices, predict_rescal_als, \
-    predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold
+    predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -63,6 +63,36 @@ def mask_all_but_X_connections_per_need(tensor, keep_x):
             slices[CONNECTION_SLICE][col,row] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
+
+# write precision/recall (and threshold) curve to file
+def write_precision_recall_curve_file(folder, outfilename, precision, recall, threshold):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    _log.info("write precision-recall-curve file:" + folder + "/" + outfilename)
+    file = codecs.open(folder + "/" + outfilename,'w+',encoding='utf8')
+    file.write("precision, recall, threshold")
+    prevline = ""
+    for i in range(1, len(threshold)):
+        line = "\n%.3f, %.3f, %.3f" % (precision[i], recall[i], threshold[i])
+        if line != prevline:
+            file.write(line)
+            prevline = line
+    file.close()
+
+# write ROC curve with TP and FP (and threshold) to file
+def write_ROC_curve_file(folder, outfilename, TP, FP, threshold):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    _log.info("write ROC-curve file:" + folder + "/" + outfilename)
+    file = codecs.open(folder + "/" + outfilename,'w+',encoding='utf8')
+    file.write("TP, FP, threshold")
+    prevline = ""
+    for i in range(1, len(threshold)):
+        line = "\n%.3f, %.3f, %.3f" % (TP[i], FP[i], threshold[i])
+        if line != prevline:
+            file.write(line)
+            prevline = line
+    file.close()
 
 # classify based on 2 values as true positive (TP), true negative (TN), false positive (FP), false negative (FN)
 def test_classification(y_true, y_pred):
@@ -334,6 +364,9 @@ if __name__ == '__main__':
         P, A, R = predict_rescal_als([test_tensor[CONNECTION_SLICE],test_tensor[ATTR_SUBJECT_SLICE]], RANK)
 
         # evaluate the predictions
+        runfolder = folder + "/stats/" + start_time
+        if not os.path.exists(runfolder):
+            os.makedirs(runfolder)
         prediction = np.round_(P[:,:,CONNECTION_SLICE][idx_test], decimals=5)
         precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], prediction)
         optimal_threshold = get_optimal_threshold(recall, precision, threshold, F_BETA)
@@ -348,9 +381,14 @@ if __name__ == '__main__':
         P_bin = predict_rescal_connections_by_threshold(P, RESCAL_THRESHOLD, offers, wants, test_needs)
         binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
         report1.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
+        write_precision_recall_curve_file(runfolder + "/rescal", "precision_recall_curve_fold%d.csv" % f,
+                                          precision, recall, threshold)
+        TP, FP, threshold = m.roc_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], prediction)
+        write_ROC_curve_file(runfolder + "/rescal", "ROC_curve_fold%d.csv" % f, TP, FP,
+                                          threshold)
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-            output_statistic_details(folder + "/stats/" + start_time + "/rescal", headers,
-                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
+            output_statistic_details(runfolder + "/rescal", headers, GROUND_TRUTH[CONNECTION_SLICE].toarray(),
+                                     P_bin[:,:,CONNECTION_SLICE], idx_test)
 
         # use the most similar needs per need to predict connections
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
@@ -358,8 +396,17 @@ if __name__ == '__main__':
         test_needs)
         binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
         report2.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
+        S = similarity_ranking(A)
+        y_prop = [1.0 - i for i in np.nan_to_num(S[idx_test])]
+        precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test],
+                                                                y_prop)
+        write_precision_recall_curve_file(runfolder + "/rescal_similarity", "precision_recall_curve_fold%d.csv" % f,
+                                          precision, recall, threshold)
+        TP, FP, threshold = m.roc_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], y_prop)
+        write_ROC_curve_file(runfolder + "/rescal_similarity", "ROC_curve_fold%d.csv" % f, TP, FP,
+                                          threshold)
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-            output_statistic_details(folder + "/stats/" + start_time + "/rescal_similarity", headers,
+            output_statistic_details(runfolder + "/rescal_similarity", headers,
                                  GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
 
         # execute the cosine similarity link prediction algorithm
@@ -370,7 +417,7 @@ if __name__ == '__main__':
                                               COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
         report3.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-            output_statistic_details(folder + "/stats/" + start_time + "/cosine", headers,
+            output_statistic_details(runfolder + "/cosine", headers,
                                  GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
 
         # execute the weighted cosine similarity link prediction algorithm
@@ -380,7 +427,7 @@ if __name__ == '__main__':
                                               COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, True)
         report4.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-            output_statistic_details(folder + "/stats/" + start_time + "/weighted_cosine", headers,
+            output_statistic_details(runfolder + "/weighted_cosine", headers,
                                  GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
 
         # end of fold loop
