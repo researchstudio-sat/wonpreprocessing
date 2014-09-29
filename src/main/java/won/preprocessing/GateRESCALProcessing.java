@@ -42,8 +42,8 @@ public class GateRESCALProcessing
   private static final Logger logger = LoggerFactory.getLogger(GateRESCALProcessing.class);
 
   public enum AnnotationType {
-    TOPIC("TopicToken", "string"),
-    DESCRIPTION("DescriptionToken", "string"),
+    TOPIC("TopicToken", "string"),  // to use stemmed tokens here choose "stem" as second arg
+    DESCRIPTION("DescriptionToken", "string"), // to use stemmed tokens here choose "stem" as second arg
     CLASSIFICATION("NeedClassificationToken", "kind");
 
     private String tokenName;

@@ -12,8 +12,8 @@ import codecs
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.io import mmwrite
-from tensor_utils import need_indices, offer_indices, want_indices, read_input_tensor, predict_rescal_als, \
-    predict_rescal_connections_by_threshold, similarity_ranking
+from tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE, need_indices, offer_indices, want_indices, \
+    read_input_tensor, predict_rescal_als, predict_rescal_connections_by_threshold, similarity_ranking, predict_rescal_connections_by_need_similarity
 
 
 # write a file with the top X term attribute predictions for every need
@@ -23,7 +23,7 @@ def write_term_output(file, predicted_tensor, headers):
     _log.info('Writing term attribute prediction output file: ' + file)
     out = codecs.open(file, 'w+', encoding='utf8')
     for need in needs:
-        darr = np.array(predicted_tensor[need,:,2])
+        darr = np.array(predicted_tensor[need,:,ATTR_SUBJECT_SLICE])
         indices = (np.argsort(darr))[-TOPX:]
         predicted = [headers[i][6:] + " (" + str(round(darr[i], 2)) + ")" for i in reversed(indices)]
         out.write(headers[need].ljust(150) + ': ' + ', '.join(predicted) + '\n')
@@ -36,7 +36,7 @@ def write_connection_output(file, input_tensor, predicted_connections, headers):
     needs = need_indices(headers)
     for from_need in needs:
         darr = np.array(predicted_connections[from_need,:])
-        indices = [i for i in needs if darr[i] == 1.0 and input_tensor[0].getrow(from_need).getcol(i)[0,0] == 0.0]
+        indices = [i for i in needs if darr[i] == 1.0 and input_tensor[CONNECTION_SLICE].getrow(from_need).getcol(i)[0,0] == 0.0]
         if len(indices) > 0:
             out.write('\n')
             out.write(headers[from_need][6:] + '\n')
@@ -86,10 +86,12 @@ if __name__ == '__main__':
     write_term_output(folder + "/outterm.txt", P, headers)
 
     # write output file for further R processing
-    P_bin = predict_rescal_connections_by_threshold(P, 0.05, offers, wants, needs)
+    # P_bin = predict_rescal_connections_by_threshold(P, 0.05, offers, wants, needs)
+    P, A, R = predict_rescal_als([input_tensor[CONNECTION_SLICE], input_tensor[ATTR_SUBJECT_SLICE]], RANK)
+    P_bin = predict_rescal_connections_by_need_similarity(P, A, 0.005, offers, wants, needs)
     _log.info('Writing predicted connection slice output file: ' + folder + "/outcon.mtx")
-    mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,0]))
-    write_connection_output(folder + "/outconn.txt", input_tensor, P_bin[:,:,0], headers)
+    mmwrite(folder + "/outcon.mtx", csr_matrix(P_bin[:,:,CONNECTION_SLICE]))
+    write_connection_output(folder + "/outconn.txt", input_tensor, P_bin[:,:,CONNECTION_SLICE], headers)
 
     # write need similarity output file - use only attribute slice, not connection or classification
     P, A, R = predict_rescal_als([input_tensor[2]], RANK)

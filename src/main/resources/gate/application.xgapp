@@ -5,6 +5,9 @@
       <gate.util.persistence.PersistenceManager-URLHolder>
         <urlString>$relpath$plugins/ANNIE/</urlString>
       </gate.util.persistence.PersistenceManager-URLHolder>
+      <gate.util.persistence.PersistenceManager-URLHolder>
+        <urlString>$relpath$plugins/Stemmer_Snowball/</urlString>
+      </gate.util.persistence.PersistenceManager-URLHolder>
     </localList>
     <collectionType>java.util.ArrayList</collectionType>
   </urlList>
@@ -171,15 +174,15 @@
                 <null />
               </entry>
               <entry>
-                <string>inputASName</string>
-                <null />
-              </entry>
-              <entry>
                 <string>document</string>
                 <null />
               </entry>
               <entry>
                 <string>corpus</string>
+                <null />
+              </entry>
+              <entry>
+                <string>inputASName</string>
                 <null />
               </entry>
             </localMap>
@@ -229,12 +232,12 @@
                 <string>Token</string>
               </entry>
               <entry>
-                <string>failOnMissingInputAnnotations</string>
-                <boolean>true</boolean>
-              </entry>
-              <entry>
                 <string>inputASName</string>
                 <null />
+              </entry>
+              <entry>
+                <string>failOnMissingInputAnnotations</string>
+                <boolean>true</boolean>
               </entry>
               <entry>
                 <string>outputASName</string>
@@ -346,6 +349,82 @@
             <localMap />
           </features>
         </gate.util.persistence.LanguageAnalyserPersistence>
+        <gate.util.persistence.PRPersistence>
+          <runtimeParams class="gate.util.persistence.MapPersistence">
+            <mapType>gate.util.SimpleFeatureMapImpl</mapType>
+            <localMap>
+              <entry>
+                <string>document</string>
+                <null />
+              </entry>
+              <entry>
+                <string>annotationSetName</string>
+                <null />
+              </entry>
+              <entry>
+                <string>annotationType</string>
+                <string>TopicToken</string>
+              </entry>
+              <entry>
+                <string>annotationFeature</string>
+                <string>string</string>
+              </entry>
+            </localMap>
+          </runtimeParams>
+          <resourceType>stemmer.SnowballStemmer</resourceType>
+          <resourceName>Stemmer1</resourceName>
+          <initParams class="gate.util.persistence.MapPersistence">
+            <mapType>gate.util.SimpleFeatureMapImpl</mapType>
+            <localMap>
+              <entry>
+                <string>language</string>
+                <string>english</string>
+              </entry>
+            </localMap>
+          </initParams>
+          <features class="gate.util.persistence.MapPersistence">
+            <mapType>gate.util.SimpleFeatureMapImpl</mapType>
+            <localMap />
+          </features>
+        </gate.util.persistence.PRPersistence>
+        <gate.util.persistence.PRPersistence>
+          <runtimeParams class="gate.util.persistence.MapPersistence">
+            <mapType>gate.util.SimpleFeatureMapImpl</mapType>
+            <localMap>
+              <entry>
+                <string>document</string>
+                <null />
+              </entry>
+              <entry>
+                <string>annotationSetName</string>
+                <string />
+              </entry>
+              <entry>
+                <string>annotationType</string>
+                <string>DescriptionToken</string>
+              </entry>
+              <entry>
+                <string>annotationFeature</string>
+                <string>string</string>
+              </entry>
+            </localMap>
+          </runtimeParams>
+          <resourceType>stemmer.SnowballStemmer</resourceType>
+          <resourceName>Stemmer2</resourceName>
+          <initParams class="gate.util.persistence.MapPersistence">
+            <mapType>gate.util.SimpleFeatureMapImpl</mapType>
+            <localMap>
+              <entry>
+                <string>language</string>
+                <string>english</string>
+              </entry>
+            </localMap>
+          </initParams>
+          <features class="gate.util.persistence.MapPersistence">
+            <mapType>gate.util.SimpleFeatureMapImpl</mapType>
+            <localMap />
+          </features>
+        </gate.util.persistence.PRPersistence>
       </localList>
       <collectionType>java.util.ArrayList</collectionType>
     </prList>
