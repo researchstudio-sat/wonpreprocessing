@@ -1,59 +1,76 @@
 import numpy as np
 from scipy.sparse.coo import coo_matrix
-
 from sklearn.feature_extraction.text import TfidfVectorizer
-
 import nltk
+from nltk import word_tokenize
 from nltk.stem import WordNetLemmatizer
-
 import six
 
-_wnl = WordNetLemmatizer()
-
-def _clean_mail(doc):
-    """Return only the Subject and Content parts from the mail."""
-    subject, content = False, False
-    accepted_lines = []
-    for line in doc.splitlines():
-        l = line.lower()
-        if l.startswith('subject'):
-            subject, content = True, False
-            line = line.lstrip('subject')
-        elif l.startswith('content'):
-            subject, content = False, True
-            line = line.lstrip('content')
-        if subject or content:
-            accepted_lines.append(line.strip())
-    return '\n'.join(accepted_lines)
+from mail_utils import mail_preprocessor
 
 
-def lemma_tokenizer(doc):
-    return [_wnl.lemmatize(t) for t in nltk.word_tokenize(_clean_mail(doc))]
+_stop_symbols = {'(', ')', '<', '>', '[', ']'}
+
+_default_tagger = nltk.data.load(nltk.tag._POS_TAGGER)
+_default_tags = {'NN', 'NNS', 'VBZ', 'JJ', 'RB', 'VBG'}
+
+default_tagger_and_tags = (_default_tagger, _default_tags)
 
 
-class PosTagLemmaTokenizer:
-    def __init__(self):
-        self.tags = {'NN', 'NNS', 'VBZ', 'JJ', 'RB', 'VBG'}
-        self.tagger = nltk.data.load(nltk.tag._POS_TAGGER)
+class ScikitNltkTokenizerAdapter:
+    def __init__(self, preprocessor=None, tokenizer=None, tagger_and_tags=None,
+                 lemmatizer=None):
+        self.preprocessor = preprocessor
+        if tokenizer is None:
+            self.tokenizer = word_tokenize
+        else:
+            self.tokenizer = tokenizer
+        if tagger_and_tags is not None:
+            self.tagger, self.tags = tagger_and_tags
+        else:
+            self.tagger, self.tags = None, None
+        self.lemmatizer = lemmatizer
 
     def __call__(self, doc):
-        tokens = nltk.word_tokenize(_clean_mail(doc))
-        tagged = self.tagger.tag(tokens)
-        return [_wnl.lemmatize(t[0]) for t in tagged if t[1] in self.tags]
+        if self.preprocessor is not None:
+            doc = self.preprocessor(doc)
+        tokens = self.tokenizer(doc)
+        if self.tagger is not None:
+            tagged = self.tagger.tag(tokens)
+            tokens = [token for token, tag in tagged if tag in self.tags]
+        if self.lemmatizer is None:
+            return tokens
+        return [self.lemmatizer.lemmatize(token) for token in tokens]
 
 
-def vectorize_and_transform(filenames, tokenizer=None):
-    if tokenizer is None:
-        tokenizer = lemma_tokenizer
+def vectorize_and_transform(filenames, tokenizer=None, vectorizer=None):
+    """
+    Extract the bag-of-words model from the provided files.
 
-    vectorizer = TfidfVectorizer(min_df=2, stop_words='english',
-                                 input='filename', ngram_range=(1, 2),
-                                 tokenizer=tokenizer)
+    :param filenames: Iterable of absolute paths to documents
+    :param tokenizer: The tokenizer to plug into the vectorizer
+    :param vectorizer: The vectorizer to use (tokenizer will be ignored).
+    :return: tf-idf matrix, vocabulary
+    """
+    if vectorizer is None:
+        if tokenizer is None:
+            tokenizer = ScikitNltkTokenizerAdapter()
+        vectorizer = TfidfVectorizer(min_df=2, stop_words='english',
+                                     input='filename', ngram_range=(1, 2),
+                                     tokenizer=tokenizer)
+
     fit = vectorizer.fit_transform(filenames)
     return fit, vectorizer.get_feature_names()
 
 
 def apply_threshold(original, threshold):
+    """
+    Filter the matrix such that each field has is greater than the threshold.
+
+    :param original: The original matrix.
+    :param threshold: Numeric threshold applied to each cell.
+    :return: COO matrix with cells filtered according to the threshold.
+    """
     original = coo_matrix(original)  # Ensure COO format
     indices = original.data > threshold
     new_data = original.data[indices]
@@ -75,7 +92,10 @@ if __name__ == '__main__':
 
     print('Loaded ', len(files), ' files from path: ', path)
 
-    data, features = vectorize_and_transform(files)
+    adapter = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
+                                         tagger_and_tags=default_tagger_and_tags,
+                                         lemmatizer=WordNetLemmatizer())
+    data, features = vectorize_and_transform(files, adapter)
 
     above_threshold = apply_threshold(data, 0.3)
 
