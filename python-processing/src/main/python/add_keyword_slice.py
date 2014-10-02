@@ -52,8 +52,6 @@ data = apply_threshold(data, 0.3)
 used_features = set(data.col)
 used_documents = set(data.row)
 
-# TODO: filter features and filenames based on whether their entries survived
-
 print('Reading headers.')
 with codecs.open(rescal_path + '/headers.txt', 'r', encoding='utf8') as f:
     headers = f.read().splitlines()
@@ -92,8 +90,8 @@ for i, feature in enumerate(features):
 
 print('Offsetting slice.')
 
-offset_row = np.array([document_index[documents[i]] for i in data.row])
-offset_col = np.array([feature_index[features[i]] for i in data.col])
+offset_row = np.array([document_index[documents[i]] - 1 for i in data.row])
+offset_col = np.array([feature_index[features[i]] - 1 for i in data.col])
 
 offset_matrix = coo_matrix((data.data, (offset_row, offset_col)))
 
