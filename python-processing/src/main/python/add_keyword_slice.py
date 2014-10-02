@@ -46,7 +46,11 @@ print('Extracting features.')
 
 file_paths = [join(doc_path, f + '.eml') for f in documents]
 data, features = vectorize_and_transform(file_paths, tokenizer=tokenizer)
+
 data = apply_threshold(data, 0.3)
+
+used_features = set(data.col)
+used_documents = set(data.row)
 
 # TODO: filter features and filenames based on whether their entries survived
 
@@ -68,21 +72,23 @@ for header in headers:
         feature_index[header[LEN:]] = headers_cursor
     headers_cursor += 1
 
-for filename in documents:
-    if filename not in document_index:
+for i, document in enumerate(documents):
+    if i not in used_documents:
+        continue
+    if document not in document_index:
         # print('Adding NEED at index (', headers_cursor, '): ', filename)
-        headers.append(NEED_STR + filename)
-        document_index[filename] = headers_cursor
+        headers.append(NEED_STR + document)
+        document_index[document] = headers_cursor
         headers_cursor += 1
 
-for feature in features:
-    if feature not in document_index:
+for i, feature in enumerate(features):
+    if i not in used_features:
+        continue
+    if feature not in feature_index:
         # print('Adding ATTR at index (', headers_cursor, '): ', feature)
         headers.append(ATTR_STR + feature)
         feature_index[feature] = headers_cursor
         headers_cursor += 1
-    else:
-        print('Feature reused: ', feature)
 
 print('Offsetting slice.')
 
