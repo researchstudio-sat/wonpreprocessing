@@ -4,7 +4,6 @@ from os import listdir
 from os.path import isfile, join
 
 from nltk.stem.wordnet import WordNetLemmatizer
-
 import numpy as np
 from scipy.sparse.coo import coo_matrix
 from scipy.io import mmwrite
@@ -56,7 +55,6 @@ print('Reading headers.')
 with codecs.open(rescal_path + '/headers.txt', 'r', encoding='utf8') as f:
     headers = f.read().splitlines()
 
-
 NEED_STR = 'Need: '
 ATTR_STR = 'Attr: '
 LEN = len(NEED_STR)
@@ -92,14 +90,16 @@ print('Offsetting slice.')
 
 offset_row = np.array([document_index[documents[i]] - 1 for i in data.row])
 offset_col = np.array([feature_index[features[i]] - 1 for i in data.col])
+contrasted_data = (data.data > 0).astype(int)
 
-offset_matrix = coo_matrix((data.data, (offset_row, offset_col)))
+offset_matrix = coo_matrix((contrasted_data, (offset_row, offset_col)))
 
 print('Writing headers.')
 
 with codecs.open(rescal_path + '/headers.txt', 'w', encoding='utf8') as f:
     f.write('\n'.join(headers))
 
+print('Writing keywords.')
 mmwrite(rescal_path + '/keywords_slice.mtx', offset_matrix)
 
 
