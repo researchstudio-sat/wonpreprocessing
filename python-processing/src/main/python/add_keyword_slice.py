@@ -10,7 +10,7 @@ from scipy.io import mmwrite
 import six
 
 from feature_extraction import vectorize_and_transform, apply_threshold, \
-    ScikitNltkTokenizerAdapter, default_tagger_and_tags
+    ScikitNltkTokenizerAdapter, default_pos_tagger
 from mail_utils import mail_preprocessor
 
 if len(sys.argv) < 3:
@@ -23,10 +23,10 @@ if len(sys.argv) == 4 and sys.argv[3].lower() in {'y', 'yes', 't', 'true'}:
     pos_tagger = None
 else:
     print('Will use POS tagging.')
-    pos_tagger = default_tagger_and_tags
+    pos_tagger = default_pos_tagger
 
 tokenizer = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
-                                       tagger_and_tags=pos_tagger,
+                                       pos_tagger=pos_tagger,
                                        lemmatizer=WordNetLemmatizer())
 
 print('Loading documents.')

@@ -14,19 +14,19 @@ _stop_symbols = {'(', ')', '<', '>', '[', ']'}
 _default_tagger = nltk.data.load(nltk.tag._POS_TAGGER)
 _default_tags = {'NN', 'NNS', 'VBZ', 'JJ', 'RB', 'VBG'}
 
-default_tagger_and_tags = (_default_tagger, _default_tags)
+default_pos_tagger = (_default_tagger, _default_tags)
 
 
 class ScikitNltkTokenizerAdapter:
-    def __init__(self, preprocessor=None, tokenizer=None, tagger_and_tags=None,
+    def __init__(self, preprocessor=None, tokenizer=None, pos_tagger=None,
                  lemmatizer=None):
         self.preprocessor = preprocessor
         if tokenizer is None:
             self.tokenizer = word_tokenize
         else:
             self.tokenizer = tokenizer
-        if tagger_and_tags is not None:
-            self.tagger, self.tags = tagger_and_tags
+        if pos_tagger is not None:
+            self.tagger, self.tags = pos_tagger
         else:
             self.tagger, self.tags = None, None
         self.lemmatizer = lemmatizer
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     print('Loaded ', len(files), ' files from path: ', path)
 
     adapter = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
-                                         tagger_and_tags=default_tagger_and_tags,
+                                         pos_tagger=default_pos_tagger,
                                          lemmatizer=WordNetLemmatizer())
     data, features = vectorize_and_transform(files, adapter)
 
