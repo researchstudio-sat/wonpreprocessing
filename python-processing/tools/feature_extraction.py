@@ -44,27 +44,6 @@ def create_vectorizer(input_type, tokenizer=None, min_df=1,
                            stop_words=stop_words, ngram_range=ngram_range)
 
 
-def vectorize_and_transform(filenames, tokenizer=None, vectorizer=None,
-                            input_type='filename'):
-    """
-    Extract the bag-of-words model from the provided files.
-
-    :param filenames: Iterable of absolute paths to documents
-    :param tokenizer: The tokenizer to plug into the vectorizer
-    :param vectorizer: The vectorizer to use (tokenizer will be ignored).
-    :return: tf-idf matrix, vocabulary
-    """
-    if vectorizer is None:
-        if tokenizer is None:
-            tokenizer = ScikitNltkTokenizerAdapter()
-        vectorizer = TfidfVectorizer(min_df=1, stop_words='english',
-                                     input=input_type, ngram_range=(1, 2),
-                                     tokenizer=tokenizer)
-
-    fit = vectorizer.fit_transform(filenames)
-    return fit, vectorizer.get_feature_names()
-
-
 def apply_threshold(original, threshold):
     """
     Filter the matrix such that each field has is greater than the threshold.
