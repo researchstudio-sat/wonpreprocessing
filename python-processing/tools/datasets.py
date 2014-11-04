@@ -5,7 +5,8 @@ from nltk import WordNetLemmatizer
 import numpy as np
 from sklearn.datasets import fetch_20newsgroups
 
-from feature_extraction import ScikitNltkTokenizerAdapter, default_pos_tagger
+from tools.feature_extraction import ScikitNltkTokenizerAdapter, \
+    default_pos_tagger
 from tools.mails import mail_preprocessor
 
 
@@ -32,11 +33,9 @@ def dataset_mails(path):
 
 
 def dataset_small():
-    content = ["""This is the first sentence. Here is another sentence!
-    And here's a third sentence.""",
-               """This is the second paragraph.""",
-               """Tokenization is currently fairly simple, so the period in
-    Mr. gets tokenized."""]
+    content = ["This is the first sentence. Here is another sentence! And here's a third sentence.",
+               "This is the second paragraph.",
+               "Tokenization is currently fairly simple, so the period in Mr. gets tokenized."]
     np.random.shuffle(content)
     return content, 'content', ScikitNltkTokenizerAdapter(
         lemmatizer=WordNetLemmatizer())

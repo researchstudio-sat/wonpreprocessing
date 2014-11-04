@@ -76,7 +76,6 @@ def new_tensor_slice(headers, feature_definitions):
     used_sets = {}
     data_offset_indices = {}
 
-    column_names = map(lambda x: x[0], feature_definitions)
     for name, _, row_or_col in feature_definitions:
         data_offset_indices[name] = {}
         used_sets[name] = set(row_or_col)
@@ -85,7 +84,7 @@ def new_tensor_slice(headers, feature_definitions):
     headers_cursor = 1
 
     for header in headers:
-        for name in column_names:
+        for name, _, _ in feature_definitions:
             column_data_index = data_offset_indices[name]
             if header.startswith(name):
                 suffix = header[len(name):]
