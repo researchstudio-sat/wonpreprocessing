@@ -1,12 +1,7 @@
-import numpy as np
 from scipy.sparse.coo import coo_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk
 from nltk import word_tokenize
-from nltk.stem import WordNetLemmatizer
-import six
-
-from mail_utils import mail_preprocessor
 
 
 _stop_symbols = {'(', ')', '<', '>', '[', ']'}
@@ -43,7 +38,14 @@ class ScikitNltkTokenizerAdapter:
         return [self.lemmatizer.lemmatize(token) for token in tokens]
 
 
-def vectorize_and_transform(filenames, tokenizer=None, vectorizer=None):
+def create_vectorizer(input_type, tokenizer=None, min_df=1,
+                      stop_words='english', ngram_range=(1, 1)):
+    return TfidfVectorizer(input=input_type, tokenizer=tokenizer, min_df=min_df,
+                           stop_words=stop_words, ngram_range=ngram_range)
+
+
+def vectorize_and_transform(filenames, tokenizer=None, vectorizer=None,
+                            input_type='filename'):
     """
     Extract the bag-of-words model from the provided files.
 
@@ -55,8 +57,8 @@ def vectorize_and_transform(filenames, tokenizer=None, vectorizer=None):
     if vectorizer is None:
         if tokenizer is None:
             tokenizer = ScikitNltkTokenizerAdapter()
-        vectorizer = TfidfVectorizer(min_df=2, stop_words='english',
-                                     input='filename', ngram_range=(1, 2),
+        vectorizer = TfidfVectorizer(min_df=1, stop_words='english',
+                                     input=input_type, ngram_range=(1, 2),
                                      tokenizer=tokenizer)
 
     fit = vectorizer.fit_transform(filenames)
@@ -77,36 +79,50 @@ def apply_threshold(original, threshold):
     new_matrix = new_data, (original.row[indices], original.col[indices])
     return coo_matrix(new_matrix)
 
-# Run an example
-if __name__ == '__main__':
-    import sys
-    from os import listdir
-    from os.path import isfile, join
 
-    if len(sys.argv) != 2:
-        raise Exception("USAGE: python feature_extraction.py <input dir>")
+def new_tensor_slice(headers, feature_definitions):
+    """
+    Returns updated headers definition with the indices for creating a new
+    coo matrix. Features not used are discarded together with their indices.
 
-    path = sys.argv[1]  # 0-th argument is the script name.
-    files = [join(path, f) for f in listdir(path) if
-             isfile(join(path, f)) and f.endswith('.eml')]
+    :param headers: The original headers. Will not be modified.
+    :param feature_definitions: The 'dimension' definitions. Iterable of
+    ("dimension name", [feature values])
+    :return: The updated headers, new indices for current features
+    """
+    headers = list(headers)
 
-    print('Loaded ', len(files), ' files from path: ', path)
+    assert len(feature_definitions) == 2
 
-    adapter = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
-                                         pos_tagger=default_pos_tagger,
-                                         lemmatizer=WordNetLemmatizer())
-    data, features = vectorize_and_transform(files, adapter)
+    used_sets = {}
+    data_offset_indices = {}
 
-    above_threshold = apply_threshold(data, 0.3)
+    column_names = map(lambda x: x[0], feature_definitions)
+    for name, _, row_or_col in feature_definitions:
+        data_offset_indices[name] = {}
+        used_sets[name] = set(row_or_col)
 
-    document_indices = above_threshold.row
-    keyword_indices = above_threshold.col
+    # Read headers for existing docs, features.
+    headers_cursor = 1
 
-    print('\n\nAccepted documents: ', len(np.unique(document_indices)))
+    for header in headers:
+        for name in column_names:
+            column_data_index = data_offset_indices[name]
+            if header.startswith(name):
+                suffix = header[len(name):]
+                column_data_index[suffix] = headers_cursor
+                break
+        headers_cursor += 1
 
-    last_di = -1
-    for di, ki in zip(document_indices, keyword_indices):
-        if di != last_di:
-            print('\n\n', files[di])
-            last_di = di
-        six.print_(features[ki], end=' | ')
+    for name, values, _ in feature_definitions:
+        column_data_index = data_offset_indices[name]
+        column_used_set = used_sets[name]
+        for i, data_point in enumerate(values):
+            if i not in column_used_set:
+                continue
+            if data_point not in column_data_index:
+                headers.append(name + data_point)
+                column_data_index[data_point] = headers_cursor
+                headers_cursor += 1
+
+    return headers, data_offset_indices

@@ -1,38 +1,9 @@
-from os import listdir
-from os.path import isfile, join
-
 from gensim import matutils
 from gensim.models import LdaModel
 from gensim.models.hdpmodel import HdpModel
-import numpy as np
-from nltk import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.datasets import fetch_20newsgroups
 
-from feature_extraction import ScikitNltkTokenizerAdapter, default_pos_tagger
-from mail_utils import mail_preprocessor
-
-
-def dataset_newsgroups(categories=None):
-    random = np.random.RandomState()
-    data = fetch_20newsgroups(categories=categories, subset='train',
-                              shuffle=True, random_state=random,
-                              remove=('headers', 'footers', 'quotes'))
-    # pos_tagger=default_pos_tagger
-    tokenize = ScikitNltkTokenizerAdapter(lemmatizer=WordNetLemmatizer(),
-                                          pos_tagger=default_pos_tagger)
-    return data.data, 'content', tokenize
-
-
-def dataset_mails(path):
-    filenames = [join(path, f) for f in listdir(path) if
-                 isfile(join(path, f)) and f.endswith('.eml')]
-    filenames = np.array(filenames)
-    np.random.shuffle(filenames)
-    tokenize = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
-                                          lemmatizer=WordNetLemmatizer(),
-                                          pos_tagger=default_pos_tagger)
-    return filenames, 'filename', tokenize
+from tools.datasets import dataset_mails
 
 
 def fit_lda(corpus, vocabulary, n_topics=10, passes=1):

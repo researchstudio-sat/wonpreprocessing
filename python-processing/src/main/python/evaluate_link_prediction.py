@@ -250,7 +250,7 @@ if __name__ == '__main__':
 
     # load the tensor input data
     folder = sys.argv[1]
-    data_input = [folder + "/data-0.mtx", folder + "/data-1.mtx", folder + "/data-2.mtx"]
+    data_input = [folder + "/data-0.mtx", folder + "/data-1.mtx", folder + "/keywords_slice.mtx"]
     header_input = folder + "/headers.txt"
     input_tensor, headers = read_input_tensor(header_input, data_input)
     checked_needs = manually_checked_needs(headers, folder + "/connections.txt")
