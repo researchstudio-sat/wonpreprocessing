@@ -5,6 +5,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from tools.datasets import dataset_mails
 
+# TODO: move to scripts
+
 
 def fit_lda(corpus, vocabulary, n_topics=10, passes=1):
     return LdaModel(corpus, num_topics=n_topics, passes=passes,
