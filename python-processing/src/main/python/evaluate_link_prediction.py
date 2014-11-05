@@ -250,10 +250,9 @@ if __name__ == '__main__':
 
     # load the tensor input data
     folder = sys.argv[1]
-    data_input = [folder + "/data-0.mtx", folder + "/data-1.mtx", folder + "/keywords_slice.mtx"]
+    data_input = [folder + "/data-0.mtx", folder + "/data-1.mtx", folder + "/data-2.mtx"]
     header_input = folder + "/headers.txt"
     input_tensor, headers = read_input_tensor(header_input, data_input)
-    checked_needs = manually_checked_needs(headers, folder + "/connections.txt")
     GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
 
 
@@ -265,7 +264,7 @@ if __name__ == '__main__':
 
     # changing the rank parameter influences the amount of internal latent "clusters" of the algorithm and thus the
     # quality of the matching as well as performance (memory and execution time)
-    RANK = 50
+    RANK = 200
 
     # True means: for testing mask all connections of random test needs (Test Case: Predict connections for new need
     # without connections)
@@ -276,16 +275,16 @@ if __name__ == '__main__':
     # the f-beta-measure is used to calculate the optimal threshold for the rescal algorithm. beta=1 is the
     # F1-measure which weights precision and recall both same important. the higher the beta value,
     # the more important is recall compared to precision
-    F_BETA = 2
+    F_BETA = 1
 
     # by changing this parameter the number of training connections per need can be set. Choose a high value (e.g.
     # 100) to use all connection in the connections file. Choose a low number to restrict the number of training
     # connections (e.g. to 1 or even 0). This way tests are possible that describe situation where initially not many
     # connection are available to learn from.
-    MAX_CONNECTIONS_PER_NEED = 100
+    MAX_CONNECTIONS_PER_NEED = 1000
 
     # threshold for RESCAL algorithm connection slice, higher threshold means higher precision
-    RESCAL_THRESHOLD = 0.005
+    RESCAL_THRESHOLD = 0.01
 
     # threshold for RESCAL algorithm need similarity, higher threshold means higher recall
     RESCAL_SIMILARITY_THRESHOLD = 0.03
@@ -298,12 +297,10 @@ if __name__ == '__main__':
     _log.info('------------------------------')
     _log.info('Test Setup:')
     _log.info('------------------------------')
-    _log.info('For testing use only needs that were manually checked for connections')
-    # checked needs only
-    needs = checked_needs
+
+    needs = need_indices(headers)
     np.random.shuffle(needs)
-    # checked connections only, already shuffled
-    connections = need_connection_indices(need_indices(headers), checked_needs)
+    connections = need_connection_indices(need_indices(headers), needs)
 
     if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
         _log.info('For testing mask all connections of random test needs (Test Case: Predict connections for new need '
@@ -350,7 +347,7 @@ if __name__ == '__main__':
         else:
             # choose test connections to mask independently of needs
             _log.info('Fold %d, fold size %d connection indices (out of %d)' % (f, connection_fold_size,
-                                                                               len(connections[0])))
+                                                                                len(connections[0])))
             idx_test = (connections[0][offset:offset+connection_fold_size],
                         connections[1][offset:offset+connection_fold_size])
             test_tensor = mask_idx_connections(input_tensor, idx_test)
@@ -361,7 +358,8 @@ if __name__ == '__main__':
 
         # execute the rescal algorithm
         # (dont use the NeedType slice for calculation in RESCAL right now)
-        P, A, R = predict_rescal_als([test_tensor[CONNECTION_SLICE],test_tensor[ATTR_SUBJECT_SLICE]], RANK)
+        P, A, R = predict_rescal_als([test_tensor[CONNECTION_SLICE],test_tensor[ATTR_SUBJECT_SLICE]],
+                                     RANK)
 
         # evaluate the predictions
         runfolder = folder + "/stats/" + start_time
@@ -385,7 +383,7 @@ if __name__ == '__main__':
                                           precision, recall, threshold)
         TP, FP, threshold = m.roc_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], prediction)
         write_ROC_curve_file(runfolder + "/rescal", "ROC_curve_fold%d.csv" % f, TP, FP,
-                                          threshold)
+                             threshold)
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
             output_statistic_details(runfolder + "/rescal", headers, GROUND_TRUTH[CONNECTION_SLICE].toarray(),
                                      P_bin[:,:,CONNECTION_SLICE], idx_test)
@@ -393,7 +391,7 @@ if __name__ == '__main__':
         # use the most similar needs per need to predict connections
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
         P_bin = predict_rescal_connections_by_need_similarity(P, A, RESCAL_SIMILARITY_THRESHOLD, offers, wants,
-        test_needs)
+                                                              test_needs)
         binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
         report2.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
         S = similarity_ranking(A)
@@ -404,33 +402,33 @@ if __name__ == '__main__':
                                           precision, recall, threshold)
         TP, FP, threshold = m.roc_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], y_prop)
         write_ROC_curve_file(runfolder + "/rescal_similarity", "ROC_curve_fold%d.csv" % f, TP, FP,
-                                          threshold)
+                             threshold)
         if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
             output_statistic_details(runfolder + "/rescal_similarity", headers,
-                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
+                                     GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
 
-        # execute the cosine similarity link prediction algorithm
-        _log.info('For prediction of cosine similarity between needs with thresholds: %f, %f'
-                  ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
-        binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers),
-                                              offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
-                                              COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
-        report3.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
-        if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-            output_statistic_details(runfolder + "/cosine", headers,
-                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
+            # # execute the cosine similarity link prediction algorithm
+            # _log.info('For prediction of cosine similarity between needs with thresholds: %f, %f'
+            #           ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
+            # binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers),
+            #                                       offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
+            #                                       COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
+            # report3.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
+            # if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
+            #     output_statistic_details(runfolder + "/cosine", headers,
+            #                          GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
+            #
+            # # execute the weighted cosine similarity link prediction algorithm
+            # _log.info('For prediction of weigthed cosine similarity between needs with thresholds %f, %f:' %
+            #           (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
+            # binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers), offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
+            #                                       COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, True)
+            # report4.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
+            # if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
+            #     output_statistic_details(runfolder + "/weighted_cosine", headers,
+            #                          GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
 
-        # execute the weighted cosine similarity link prediction algorithm
-        _log.info('For prediction of weigthed cosine similarity between needs with thresholds %f, %f:' %
-                  (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
-        binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers), offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
-                                              COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, True)
-        report4.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
-        if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-            output_statistic_details(runfolder + "/weighted_cosine", headers,
-                                 GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
-
-        # end of fold loop
+            # end of fold loop
 
     _log.info('====================================================')
     _log.info('AUC-PR Test Mean / Std: %f / %f' % (AUC_test.mean(), AUC_test.std()))
