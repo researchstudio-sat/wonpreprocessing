@@ -12,8 +12,8 @@ import codecs
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.io import mmwrite
-from tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE, need_indices, offer_indices, want_indices, \
-    read_input_tensor, predict_rescal_als, predict_rescal_connections_by_threshold, similarity_ranking, predict_rescal_connections_by_need_similarity
+from tools.tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE, need_indices, offer_indices, want_indices, \
+    read_input_tensor, predict_rescal_als, similarity_ranking, predict_rescal_connections_by_need_similarity
 
 
 # write a file with the top X term attribute predictions for every need

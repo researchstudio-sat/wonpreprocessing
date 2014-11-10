@@ -17,19 +17,14 @@
 package won.preprocessing;
 
 import gate.util.GateException;
+import org.apache.commons.cli.*;
 import org.apache.commons.mail.util.MimeMessageParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.Charset;
 
 /**
@@ -56,15 +51,49 @@ public class MailProcessing
 
   public static void main(String[] args) {
 
-    if (args.length < 2) {
-      System.err.println("USAGE: java MailProcessing <input_directory> <output_directory>");
-    } else try {
-      MailProcessing.preprocessMails(args[0], args[1]);
-      GateRESCALProcessing rescal = new GateRESCALProcessing(GATE_APP_PATH, args[1]);
-      rescal.processFilesWithGate(args[1]);
-      rescal.addConnectionData(args[1] + "/rescal/connections.txt");
-      rescal.createRescalData(args[1] + "/rescal");
+    String input = null;
+    String output = null;
+    String workingFolder = null;
+    String connections = null;
+    String gateApp = null;
+    boolean createContentSlice = false;
+    boolean useStemming = false;
 
+    // create Options object for command line input
+    Options options = new Options();
+    options.addOption("input", true, "input mail file folder");
+    options.addOption("output", true, "output results folder");
+    options.addOption("connections", true, "connections txt file");
+    options.addOption("gateapp" ,true, "gate application path (to .xgapp)");
+    options.addOption("content", false, "create a content slice in addition to the subject and need type slices");
+    options.addOption("stemming" , false, "use stemming in preprocessing");
+
+    CommandLineParser parser = new BasicParser();
+    try {
+      CommandLine cmd = parser.parse(options, args);
+      input = cmd.getOptionValue("input");
+      output = cmd.getOptionValue("output");
+      connections = cmd.getOptionValue("connections");
+      gateApp = cmd.getOptionValue("gateapp", GATE_APP_PATH);
+      createContentSlice = cmd.hasOption("content");
+      useStemming = cmd.hasOption("stemming");
+
+      if (input == null || output == null) {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp( "-input <folder> -output <folder>  ... other optional options", options );
+      }
+
+      workingFolder = output + "/preprocessed";
+      MailProcessing.preprocessMails(input, workingFolder);
+      GateRESCALProcessing rescal = new GateRESCALProcessing(gateApp, workingFolder, createContentSlice, useStemming);
+      rescal.processFilesWithGate(workingFolder);
+      if (connections != null) {
+        rescal.addConnectionData(connections);
+      }
+      rescal.createRescalData(output);
+
+    } catch (ParseException e) {
+      logger.error(e.getMessage(), e);
     } catch (IOException e) {
       logger.error(e.getMessage(), e);
     } catch (GateException e) {

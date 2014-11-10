@@ -45,10 +45,19 @@ public class WonMatchingData
   }
 
   public enum SliceTypes {
-    HAS_CONNECTION,
-    IS_NEED_TYPE,
-    HAS_TOPIC_ATTRIBUTE,
-    HAS_DESCRIPTION_ATTRIBUTE
+    HAS_CONNECTION("connection"),
+    IS_NEED_TYPE("needtype"),
+    HAS_TOPIC_ATTRIBUTE("subject"),
+    HAS_DESCRIPTION_ATTRIBUTE("content");
+    private String sliceFileName;
+
+    private SliceTypes(String fileName) {
+      sliceFileName = fileName;
+    }
+
+    public String getSliceFileName() {
+      return sliceFileName;
+    }
   }
 
   private static final Logger logger = LoggerFactory.getLogger(WonMatchingData.class);
@@ -179,7 +188,14 @@ public class WonMatchingData
       return;
     }
 
-    tensor.writeToFile(folder + "/", DATA_FILE_PREFIX);
+    tensor.writeSliceToFile(folder + "/" + SliceTypes.HAS_CONNECTION.getSliceFileName() + ".mtx",
+                            SliceTypes.HAS_CONNECTION.ordinal());
+    tensor.writeSliceToFile(folder + "/" + SliceTypes.IS_NEED_TYPE.getSliceFileName() + ".mtx",
+                            SliceTypes.IS_NEED_TYPE.ordinal());
+    tensor.writeSliceToFile(folder + "/" + SliceTypes.HAS_TOPIC_ATTRIBUTE.getSliceFileName() + ".mtx",
+                            SliceTypes.HAS_TOPIC_ATTRIBUTE.ordinal());
+    tensor.writeSliceToFile(folder + "/" + SliceTypes.HAS_DESCRIPTION_ATTRIBUTE.getSliceFileName() + ".mtx",
+                            SliceTypes.HAS_DESCRIPTION_ATTRIBUTE.ordinal());
 
     // write the headers file
     FileOutputStream fos = new FileOutputStream(new File(folder + "/" + HEADERS_FILE));

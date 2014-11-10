@@ -42,8 +42,8 @@ public class GateRESCALProcessing
   private static final Logger logger = LoggerFactory.getLogger(GateRESCALProcessing.class);
 
   public enum AnnotationType {
-    TOPIC("TopicToken", "string"),  // to use stemmed tokens here choose "stem" as second arg
-    DESCRIPTION("DescriptionToken", "string"), // to use stemmed tokens here choose "stem" as second arg
+    TOPIC("TopicToken", "string"),  // use "stem" here as second argument for stemmed tokens
+    DESCRIPTION("DescriptionToken", "string"), // use "stem" here as second argument for stemmed tokens
     CLASSIFICATION("NeedClassificationToken", "kind");
 
     private String tokenName;
@@ -72,12 +72,17 @@ public class GateRESCALProcessing
   }
 
   private String baseFolder;
+  private boolean createContentSlice;
+  private boolean useStemming;
   private WonMatchingData matchingData;
   private CorpusController gateApplication;
 
-  public GateRESCALProcessing(String gateAppPath, String baseFolder) throws GateException, IOException {
+  public GateRESCALProcessing(String gateAppPath, String baseFolder,
+                              boolean createContentSlice, boolean useStemming) throws GateException, IOException {
     matchingData = new WonMatchingData();
     this.baseFolder = baseFolder;
+    this.createContentSlice = createContentSlice;
+    this.useStemming = useStemming;
 
     // init Gate
     logger.info("Initialising Gate");
@@ -166,12 +171,20 @@ public class GateRESCALProcessing
 
           case TOPIC:
             attrValue = getFeatureValueFromAnnotation(annotation, type.getFeatureName());
+            if (useStemming) {
+              attrValue = getFeatureValueFromAnnotation(annotation, "stem");
+            }
             matchingData.addNeedAttribute(needId, attrValue, WonMatchingData.AttributeType.TOPIC);
             break;
 
           case DESCRIPTION:
-            attrValue = getFeatureValueFromAnnotation(annotation, type.getFeatureName());
-            //matchingData.addNeedAttribute(needId, attrValue, WonMatchingData.AttributeType.DESCRIPTION);
+            if (createContentSlice) {
+              attrValue = getFeatureValueFromAnnotation(annotation, type.getFeatureName());
+              if (useStemming) {
+                attrValue = getFeatureValueFromAnnotation(annotation, "stem");
+              }
+              matchingData.addNeedAttribute(needId, attrValue, WonMatchingData.AttributeType.DESCRIPTION);
+            }
             break;
 
           case CLASSIFICATION:

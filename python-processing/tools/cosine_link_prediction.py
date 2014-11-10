@@ -1,9 +1,12 @@
 
 __author__ = 'bivanschitz'
 
-from scipy.spatial.distance import pdist, cosine, matching, dice
 from math import log10
-from tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE
+
+from scipy.spatial.distance import cosine
+
+from tools.tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE
+
 
 #FUNCTIONS
 

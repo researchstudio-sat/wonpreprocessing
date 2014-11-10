@@ -96,6 +96,12 @@ public class ThirdOrderSparseTensor
     }
   }
 
+  public void writeSliceToFile(String fileName, int slice) throws IOException {
+    MatrixMarketStream mms = new MatrixMarketStream(
+      new FileOutputStream(new File(fileName)));
+    mms.writeMatrix(slices[slice]);
+  }
+
   private static class CopyToMatrix implements MatrixProcedure
   {
     private Matrix copy;
