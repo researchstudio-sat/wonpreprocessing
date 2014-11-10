@@ -18,12 +18,13 @@ doc_path = sys.argv[1]
 rescal_path = sys.argv[2]
 
 
-def get_document_names(file_paths):
+def get_document_names(path_prefix, file_paths):
     to_ignore = set()
     documents = []
     for i, file_path in enumerate(file_paths):
         try:  # Upon manipulation we might find something strange.
-            document_name = six.text_type(file_path.rstrip('.eml'))
+            document_name = six.text_type(
+                file_path.rstrip('.eml').lstrip(path_prefix))
             documents.append(document_name)
         except UnicodeDecodeError:  # So we will not use that file.
             to_ignore.add(i)
@@ -35,21 +36,21 @@ def get_document_names(file_paths):
 
 print('Loading documents.')
 
-paths, input_type, tokenizer = dataset_small()
-docs = list(paths)
+# paths, input_type, tokenizer = dataset_small()
+# docs = list(paths)
 
-# paths, input_type, tokenizer = dataset_mails(doc_path)
-# docs, paths = get_document_names(paths)
+paths, input_type, tokenizer = dataset_mails(doc_path)
+docs, paths = get_document_names(doc_path, paths)
 
 print('Loaded ', len(docs), ' files from path: ', doc_path, '.')
 
 print('Extracting features.')
-vectorizer = create_vectorizer(input_type, tokenizer=tokenizer)
+vectorizer = create_vectorizer(input_type, tokenizer=tokenizer, min_df=2)
 
 data = vectorizer.fit_transform(paths)
 features = vectorizer.get_feature_names()
 
-data = apply_threshold(data, 0.3)
+data = apply_threshold(data, 0.2)
 
 print('Reading headers.')
 with codecs.open(rescal_path + '/headers.txt', 'r', encoding='utf8') as f:

@@ -66,8 +66,8 @@ def new_tensor_slice(headers, feature_definitions):
 
     :param headers: The original headers. Will not be modified.
     :param feature_definitions: The 'dimension' definitions. Iterable of
-    ("dimension name", [feature values])
-    :return: The updated headers, new indices for current features
+    ("dimension name", [feature values], [COO row or col indices])
+    :return: (The updated headers, new indices for current features)
     """
     headers = list(headers)
 
@@ -76,9 +76,9 @@ def new_tensor_slice(headers, feature_definitions):
     used_sets = {}
     data_offset_indices = {}
 
-    for name, _, row_or_col in feature_definitions:
+    for name, _, used_coo_indices in feature_definitions:
         data_offset_indices[name] = {}
-        used_sets[name] = set(row_or_col)
+        used_sets[name] = set(used_coo_indices)
 
     # Read headers for existing docs, features.
     headers_cursor = 1
