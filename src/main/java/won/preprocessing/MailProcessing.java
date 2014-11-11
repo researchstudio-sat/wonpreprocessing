@@ -101,12 +101,6 @@ public class MailProcessing
     }
   }
 
-  public static String cleanFileName(String filename) {
-    String result = filename.replaceAll("[+?]","");
-    result = result.replaceAll("\\p{C}", "");
-    return result;
-  }
-
   /**
    * Read mail files from the input folder, extract several fields (e.g. subject, content, from,
    * to) and save this data back into a text file of the output folder.
@@ -158,7 +152,7 @@ public class MailProcessing
           content = parser.getHtmlContent();
         }
 
-        File outfile = new File(outputFolder + "/" + cleanFileName(file.getName()));
+        File outfile = new File(outputFolder + "/" + file.getName());
         logger.debug("writing output file: {}", outfile.getAbsolutePath());
         logger.debug("- mail subject: {}", parser.getSubject());
         FileOutputStream outputStream = new FileOutputStream(outfile);

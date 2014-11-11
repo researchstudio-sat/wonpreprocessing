@@ -248,8 +248,8 @@ public class GateRESCALProcessing
 
   private void addConnection(List<String> needs) throws MalformedURLException {
     for (int i = 1; i < needs.size(); i++) {
-      String need1 = MailProcessing.cleanFileName(needs.get(0));
-      String need2 = MailProcessing.cleanFileName(needs.get(i));
+      String need1 = needs.get(0);
+      String need2 = needs.get(i);
       if (!matchingData.getNeeds().contains(need1) || !matchingData.getNeeds().contains(need2)) {
         logger.warn("add connection between new needs: \n{} \n{}", need1, need2);
       }

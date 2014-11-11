@@ -19,6 +19,8 @@ Preprocessing:
 * set Gate home variable (-Dgate.home=<to gate base folder>)
 * setup input folder with mail files
 * setup output folder (including a subfolder "rescal" with "connections.txt" file)
+* install python (2.7 or 3.4) with scipy and numpy packages (e.g. Anaconda : http://continuum.io/downloads)
+* execute the python script "normalizefilenames.py" on the folder with the mail files
 * execute "src/main/MailProcessing.java" with following parameters:
 VM options: -Dgate.home=path_to_gate -Xmx3G
 program args: input_mail_folder output_mail_folder
