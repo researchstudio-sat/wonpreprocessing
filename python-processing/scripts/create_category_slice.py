@@ -16,7 +16,7 @@ import logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
-_log = logging.getLogger('createcategoryslice.py')
+_log = logging.getLogger('create_category_slice.py')
 
 
 folder = sys.argv[1]

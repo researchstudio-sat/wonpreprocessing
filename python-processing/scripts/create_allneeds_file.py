@@ -5,7 +5,7 @@ import sys
 import codecs
 
 # simple script to create a text file with all the mail text file names (needs) in a directory.
-# this is used for categorization of the needs, also see script createcategories.py
+# this is used for categorization of the needs, also see script create_categories.py
 
 mailfolder = sys.argv[1]
 file = codecs.open(mailfolder + "/out/rescal/connections.txt",  mode="r", encoding="utf8")

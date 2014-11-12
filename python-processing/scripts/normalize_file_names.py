@@ -18,7 +18,7 @@ def replace_chars(str, niceChars, replaceChar):
         newstring += (char if char in niceChars else replaceChar)
     return newstring
 
-NICE_CHARS = list(string.ascii_letters + string.digits + "-.,:@()[]")
+NICE_CHARS = list(string.ascii_letters + string.digits + " " +"_-.,:@()[]")
 
 infolder = sys.argv[1]
 outfolder = sys.argv[2]
@@ -31,7 +31,9 @@ _log.info("Read file names from folder: " + infolder)
 _log.info("Normalize file names and copy files to folder: " + outfolder)
 for mail in mails:
     if os.path.isfile(infolder + "/" + mail):
-        newFileName = replace_chars(mail, NICE_CHARS, " ")
+        newFileName = replace_chars(mail, NICE_CHARS, "_")
         shutil.copyfile(infolder + "/" + mail, outfolder + "/" + newFileName)
     elif not os.path.isdir(infolder + "/" + mail):
         _log.warn("Problem with file (must be renamed and copied manually): " + mail)
+    else:
+        _log.warn("Directory not processed: " + mail)
