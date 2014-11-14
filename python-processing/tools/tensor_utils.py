@@ -1,3 +1,5 @@
+from scipy.io.mmio import mmwrite
+
 __author__ = 'hfriedrich'
 
 import logging
@@ -21,9 +23,13 @@ CONNECTION_SLICE = 0
 NEED_TYPE_SLICE = 1
 ATTR_SUBJECT_SLICE = 2
 
+
+
 # read the input tensor data (e.g. data-0.mtx ... data-3.mtx) and
 # the headers file (e.g. headers.txt)
-def read_input_tensor(headers_filename, data_file_names):
+# if adjustDim is True then the dimensions of the slice matrix
+# files are automatically adjusted to fit to biggest dimensions of all slices
+def read_input_tensor(headers_filename, data_file_names, adjustDim=False):
 
     #load the header file
     _log.info("Read header input file: " + headers_filename)
@@ -31,10 +37,23 @@ def read_input_tensor(headers_filename, data_file_names):
     headers = input.read().splitlines()
     input.close()
 
+    # get the largest dimension of all slices
+    if adjustDim:
+        maxDim = 0
+        for data_file in data_file_names:
+            matrix = mmread(data_file)
+            if maxDim < matrix.shape[0]:
+                maxDim = matrix.shape[0]
+            if maxDim < matrix.shape[1]:
+                maxDim = matrix.shape[1]
+
     # load the data files
     K = []
     slice = 0
     for data_file in data_file_names:
+        if adjustDim:
+            _log.warn("Adujst dimension to (%d,%d) of matrix file: %s" % (maxDim, maxDim, data_file))
+            adjust_mm_dimension(data_file, maxDim)
         _log.info("Read as slice %d the data input file: %s" % (slice, data_file))
         matrix = mmread(data_file)
         if slice == 0:
@@ -45,6 +64,23 @@ def read_input_tensor(headers_filename, data_file_names):
         K.append(csr_matrix(matrix))
         slice = slice + 1
     return K, headers
+
+# adjust (increase) the dimension of an mm matrix file
+def adjust_mm_dimension(data_file, dim):
+    file = codecs.open(data_file,'r',encoding='utf8')
+    lines = file.read().splitlines()
+    file.close()
+    file = codecs.open(data_file,'w+',encoding='utf8')
+    found = False
+    for line in lines:
+        if not line.startswith('%') and not found:
+            vals = line.split(' ')
+            newLine = str(dim) + " " + str(dim) + " " + vals[2]
+            file.write(newLine + "\n")
+            found = True
+        else:
+            file.write(line + "\n")
+    file.close()
 
 # return a tuple with two lists holding need indices that represent connections
 # between these needs, symmetric connection are only represented once
@@ -143,3 +179,4 @@ def predict_rescal_connections_by_threshold(P, threshold, all_offers, all_wants,
             if P[need,x,CONNECTION_SLICE] >= threshold:
                 binary_prediction[need,x,CONNECTION_SLICE] = 1
     return binary_prediction
+

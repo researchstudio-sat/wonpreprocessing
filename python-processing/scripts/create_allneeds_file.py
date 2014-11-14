@@ -8,12 +8,13 @@ import codecs
 # this is used for categorization of the needs, also see script create_categories.py
 
 mailfolder = sys.argv[1]
-file = codecs.open(mailfolder + "/out/rescal/connections.txt",  mode="r", encoding="utf8")
-lines = file.read().splitlines()
+
+oldfile = codecs.open("C:/dev/temp/testcorpus/complete/out/rescal/allneeds.txt",  mode="r", encoding="utf8")
+oldlines = oldfile.read().splitlines()
 
 mails = [unicode(s, "utf-8", errors="replace") for s in os.listdir(mailfolder)]
 
-out = codecs.open(mailfolder + "/out/rescal/allneeds.txt", mode="w+", encoding="utf8")
+out = codecs.open(mailfolder + "/allneeds3.txt", mode="w+", encoding="utf8")
 
-for need in mails:
-    out.write(need[:-4] + "\n")
+
+

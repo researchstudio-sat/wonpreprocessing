@@ -98,6 +98,8 @@ public class MailProcessing
       logger.error(e.getMessage(), e);
     } catch (GateException e) {
       logger.error(e.getMessage(), e);
+    } catch (Exception e) {
+      logger.error(e.getMessage(), e);
     }
   }
 

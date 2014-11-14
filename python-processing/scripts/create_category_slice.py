@@ -20,7 +20,7 @@ _log = logging.getLogger('create_category_slice.py')
 
 
 folder = sys.argv[1]
-allneedsfile = folder + "/allneeds.txt"
+allneedsfile = sys.argv[2]
 headerfile = folder + "/headers.txt"
 
 
@@ -54,7 +54,7 @@ for categorized_need in allneeds:
 
 newSize = len(headers) + len(categories)
 category_slice = category_slice[:newSize,:newSize]
-mmwrite(folder + "/categoryslice.mtx", csr_matrix(category_slice))
+mmwrite(folder + "/category.mtx", csr_matrix(category_slice))
 
 _log.info("Write categories to header input file: " + headerfile)
 out = codecs.open(headerfile,'a+',encoding='utf8')

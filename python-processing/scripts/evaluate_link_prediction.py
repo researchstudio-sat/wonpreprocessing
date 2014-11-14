@@ -272,7 +272,7 @@ if __name__ == '__main__':
                         type=int, help="number of folds in cross fold validation")
     parser.add_argument('-maskrandom', action="store_true", dest="maskrandom",
                         help="mask random test connections (not per need)")
-    parser.add_argument('-fbeta', action="store", dest="fbeta", default=1.0,
+    parser.add_argument('-fbeta', action="store", dest="fbeta", default=0.5,
                         type=float, help="f-beta measure to calculate during evaluation")
     parser.add_argument('-maxconnections', action="store", dest="maxconnections", default=1000,
                         type=int, help="maximum number of connections used to lern from per need")
