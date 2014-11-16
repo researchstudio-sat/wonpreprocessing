@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
-_log = logging.getLogger('Mail Example')
+_log = logging.getLogger()
 
 import os
 import codecs
@@ -205,7 +205,7 @@ class EvaluationReport:
         self.fscore = []
 
     def add_evaluation_data(self, y_true, y_pred):
-        p, r, f, _ =  m.precision_recall_fscore_support(y_true, y_pred, average='weighted')
+        p, r, f, _ =  m.precision_recall_fscore_support(y_true, y_pred, average='weighted', beta=self.f_beta)
         a = m.accuracy_score(y_true, y_pred)
         cm = m.confusion_matrix(y_true, y_pred, [1, 0])
         self.precision.append(p)
@@ -251,9 +251,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='link prediction algorithm evaluation script')
 
     # general
-    parser.add_argument('-folder',
-                        action="store", dest="folder", required=True,
-                        help="input/output folder of the evaluation")
+    parser.add_argument('-inputfolder',
+                        action="store", dest="inputfolder", required=True,
+                        help="input folder of the evaluation")
+    parser.add_argument('-outputfolder',
+                        action="store", dest="outputfolder", required=False,
+                        help="output folder of the evaluation")
     parser.add_argument('-header',
                         action="store", dest="headers", default="headers.txt",
                         help="name of header file")
@@ -294,12 +297,16 @@ if __name__ == '__main__':
                         help="evaluate weighted cosine similarity algorithm")
 
     args = parser.parse_args()
-    folder = args.folder
+    folder = args.inputfolder
+
     start_time = strftime("%Y-%m-%d_%H%M%S")
-    outfolder = folder + "/out/" + start_time
+    if args.outputfolder:
+        outfolder = args.outputfolder
+    else:
+        outfolder = folder + "/out/" + start_time
     if not os.path.exists(outfolder):
         os.makedirs(outfolder)
-    hdlr = logging.FileHandler(outfolder + "/eval_result.log")
+    hdlr = logging.FileHandler(outfolder + "/eval_result_" + start_time + ".log")
     _log.addHandler(hdlr)
 
     # load the tensor input data
@@ -308,7 +315,7 @@ if __name__ == '__main__':
     for slice in args.additional_slices:
         data_input.append(folder + "/" + slice)
     header_input = folder + "/" + args.headers
-    input_tensor, headers = read_input_tensor(header_input, data_input)
+    input_tensor, headers = read_input_tensor(header_input, data_input, True)
     GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
 
 

@@ -14,7 +14,7 @@ from rescal import rescal_als
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
-_log = logging.getLogger('tensor utils')
+_log = logging.getLogger()
 
 # This file contains util functions for the processing of the tensor (including handling
 # of needs, attributes, etc.)
@@ -52,8 +52,9 @@ def read_input_tensor(headers_filename, data_file_names, adjustDim=False):
     slice = 0
     for data_file in data_file_names:
         if adjustDim:
-            _log.warn("Adujst dimension to (%d,%d) of matrix file: %s" % (maxDim, maxDim, data_file))
-            adjust_mm_dimension(data_file, maxDim)
+            adjusted = adjust_mm_dimension(data_file, maxDim)
+            if adjusted:
+                _log.warn("Adujst dimension to (%d,%d) of matrix file: %s" % (maxDim, maxDim, data_file))
         _log.info("Read as slice %d the data input file: %s" % (slice, data_file))
         matrix = mmread(data_file)
         if slice == 0:
@@ -70,6 +71,12 @@ def adjust_mm_dimension(data_file, dim):
     file = codecs.open(data_file,'r',encoding='utf8')
     lines = file.read().splitlines()
     file.close()
+    for line in lines:
+        if not line.startswith('%'):
+            vals = line.split(' ')
+            if (int(vals[0]) == dim and int(vals[1]) == dim):
+                return False
+
     file = codecs.open(data_file,'w+',encoding='utf8')
     found = False
     for line in lines:
@@ -81,6 +88,7 @@ def adjust_mm_dimension(data_file, dim):
         else:
             file.write(line + "\n")
     file.close()
+    return True
 
 # return a tuple with two lists holding need indices that represent connections
 # between these needs, symmetric connection are only represented once

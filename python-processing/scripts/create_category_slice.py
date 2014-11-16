@@ -6,11 +6,8 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.io import mmwrite
 
-# simple script that creates a categoryslice.mtx from the headers.txt file and the categorized needs in the
-# allneeds.txt file. In case the file format of headers.txt and allneeds.txt differs, some file names have to be
-# adjusted manually in the allneeds.txt.
-# Also after the creation was successful the other data-0,1,2.mtx files have to be adjusted to have the same
-# dimension as the generated categoryslice.mtx if they are read and evaluated together.
+# simple script that creates a categoryslice.mtx including a new headers file from the headers.txt file and the
+# categorized needs in the allneeds.txt file.
 
 import logging
 logging.basicConfig(level=logging.INFO,
