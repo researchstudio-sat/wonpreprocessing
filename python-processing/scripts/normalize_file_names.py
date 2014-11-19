@@ -7,7 +7,7 @@ import shutil
 
 import logging
 logging.basicConfig(level=logging.INFO)
-_log = logging.getLogger('std_file_names')
+_log = logging.getLogger()
 
 # Simple script to normalize filenames before processing them in different environments (python 2, python 3,
 # win/unix, java/gate) which can lead to problems. This should be the first script to execute on the data

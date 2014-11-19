@@ -318,7 +318,6 @@ if __name__ == '__main__':
     input_tensor, headers = read_input_tensor(header_input, data_input, True)
     GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
 
-
     # TEST-PARAMETERS:
     # ===================
 

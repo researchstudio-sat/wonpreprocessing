@@ -32,31 +32,23 @@ class CreateTensor(luigi.Task):
     stemming = luigi.BooleanParameter(default=False)
     content = luigi.BooleanParameter(default=False)
 
-    def getTensorFolder(self):
-        out = self.tensorfolder + "/tensor"
-        if (self.stemming):
-            out += "_stem"
-        if (self.content):
-            out += "_content"
-        return out
-
     def requires(self):
         return [NormalizeFileNames(self.inputfolder, self.inputfolder + "/normalized")]
 
     def output(self):
-        return luigi.LocalTarget(self.getTensorFolder()), \
-               luigi.LocalTarget(self.getTensorFolder() + "/headers.txt"), \
-               luigi.LocalTarget(self.getTensorFolder() + "/connection.mtx"), \
-               luigi.LocalTarget(self.getTensorFolder() + "/needtype.mtx"), \
-               luigi.LocalTarget(self.getTensorFolder() + "/subject.mtx"), \
-               luigi.LocalTarget(self.getTensorFolder() + "/content.mtx")
+        return luigi.LocalTarget(self.tensorfolder), \
+               luigi.LocalTarget(self.tensorfolder + "/headers.txt"), \
+               luigi.LocalTarget(self.tensorfolder + "/connection.mtx"), \
+               luigi.LocalTarget(self.tensorfolder + "/needtype.mtx"), \
+               luigi.LocalTarget(self.tensorfolder + "/subject.mtx"), \
+               luigi.LocalTarget(self.tensorfolder + "/content.mtx")
 
     def run(self):
         java_call = "java -Xmx3G -Dgate.home=" + self.gatehome
         java_call += " -jar " + self.jarfile
         params = " -gateapp " + self.gateapp
         params += " -input " + self.input()[0].path
-        params += " -output " + self.getTensorFolder()
+        params += " -output " + self.tensorfolder
         params += " -connections " + self.connections
         if (self.stemming):
             params += " -stemming"
@@ -73,12 +65,12 @@ class CreateCategorySlice(CreateTensor):
 
     def requires(self):
         return [CreateTensor(self.gatehome, self.jarfile,
-                             self.inputfolder, self.outputfolder,
+                             self.inputfolder, self.tensorfolder,
                              self.connections, self.gateapp,
                              self.stemming, self.content)]
 
     def output(self):
-        return luigi.LocalTarget(self.getTensorFolder() + "/category.mtx")
+        return luigi.LocalTarget(self.tensorfolder + "/category.mtx")
 
     def getParams(self):
        return self.input()[0][0].path + " " + self.allneeds
