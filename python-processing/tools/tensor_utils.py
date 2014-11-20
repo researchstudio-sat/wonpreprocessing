@@ -6,7 +6,7 @@ import logging
 import codecs
 import numpy as np
 from scipy.io import mmread
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, coo_matrix, lil_matrix
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 from rescal import rescal_als
@@ -134,8 +134,8 @@ def want_indices(tensor, headers):
     wants = [need for need in needs if (tensor[NEED_TYPE_SLICE][need, want_attr_idx] == 1)]
     return wants
 
-# execute the rescal algorithm and return a prediction tensor
-def predict_rescal_als(input_tensor, rank):
+# execute the recal algorithm
+def execute_rescal(input_tensor, rank):
     _log.info('start rescal processing ...')
     _log.info('Datasize: %d x %d x %d | Rank: %d' % (
         input_tensor[0].shape + (len(input_tensor),) + (rank,))
@@ -144,10 +144,17 @@ def predict_rescal_als(input_tensor, rank):
         input_tensor, rank, init='nvecs', conv=1e-3,
         lambda_A=0, lambda_R=0, compute_fit='true'
     )
+    return A, R
+
+# execute the rescal algorithm and return a prediction tensor
+def predict_rescal_als(input_tensor, rank):
+    A,R = execute_rescal(input_tensor, rank)
+
     n = A.shape[0]
     P = np.zeros((n, n, len(R)))
     for k in range(len(R)):
         P[:, :, k] = np.dot(A, np.dot(R[k], A.T))
+
     return P, A, R
 
 # create a similarity matrix of needs (and attributes)
@@ -155,11 +162,36 @@ def similarity_ranking(A):
     dist = squareform(pdist(A, metric='cosine'))
     return dist
 
+# return the specified indices from a sparse matrix as an numpy array
+def matrix_to_array(m, indices):
+    return np.array(m[indices])[0]
+
+# return the rescal predictions of the connection slice at the specified indices as an numpy array
+def predict_rescal_connections_array(A, R, indices):
+    result = [np.dot(A[indices[0][i],:], np.dot(R[CONNECTION_SLICE], A[indices[1][i],:])) for i in range(len(indices[0]))]
+    return result
+
+# for rescal algorithm output predict connections by fixed threshold (higher threshold means higher precision)
+def predict_rescal_connections_by_threshold(A, R, threshold, all_offers, all_wants, test_needs):
+    binary_prediction = lil_matrix(np.zeros(shape=(A.shape[0],A.shape[0])))
+    for need in test_needs:
+        if need in all_offers:
+            all_needs = all_wants
+        elif need in all_wants:
+            all_needs = all_offers
+        else:
+            continue
+        inner_product = np.dot(R[CONNECTION_SLICE], A[need,:])
+        for x in all_needs:
+            if (np.dot(A[x,:], inner_product)) >= threshold:
+                binary_prediction[need,x] = 1
+    return csr_matrix(binary_prediction)
+
 # for rescal algorithm output predict connections by fixed threshold for each of the test_needs based on the
 # similarity of latent need clusters (higher threshold means higher recall)
-def predict_rescal_connections_by_need_similarity(P, A, threshold, all_offers, all_wants, test_needs):
+def predict_rescal_connections_by_need_similarity(A, threshold, all_offers, all_wants, test_needs):
     S = similarity_ranking(A)
-    binary_prediction = np.zeros(P.shape)
+    binary_prediction = lil_matrix(np.zeros(shape=(A.shape[0],A.shape[0])))
     for need in test_needs:
         if need in all_offers:
             all_needs = all_wants
@@ -170,21 +202,5 @@ def predict_rescal_connections_by_need_similarity(P, A, threshold, all_offers, a
 
         for x in all_needs:
             if S[need,x] < threshold:
-                binary_prediction[need, x, CONNECTION_SLICE] = 1
-    return binary_prediction
-
-# for rescal algorithm output predict connections by fixed threshold (higher threshold means higher precision)
-def predict_rescal_connections_by_threshold(P, threshold, all_offers, all_wants, test_needs):
-    binary_prediction = np.zeros(P.shape)
-    for need in test_needs:
-        if need in all_offers:
-            all_needs = all_wants
-        elif need in all_wants:
-            all_needs = all_offers
-        else:
-            continue
-        for x in all_needs:
-            if P[need,x,CONNECTION_SLICE] >= threshold:
-                binary_prediction[need,x,CONNECTION_SLICE] = 1
-    return binary_prediction
-
+                binary_prediction[need, x] = 1
+    return csr_matrix(binary_prediction)

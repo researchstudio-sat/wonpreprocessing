@@ -12,12 +12,13 @@ import os
 import codecs
 import argparse
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, lil_matrix
 import sklearn.metrics as m
 from time import strftime
 from tools.cosine_link_prediction import cosinus_link_prediciton
-from tools.tensor_utils import CONNECTION_SLICE, NEED_TYPE_SLICE, connection_indices, read_input_tensor, need_indices, want_indices, offer_indices, predict_rescal_als, \
-    predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking
+from tools.tensor_utils import CONNECTION_SLICE, NEED_TYPE_SLICE, connection_indices, read_input_tensor, need_indices, want_indices, offer_indices, \
+    predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking, \
+    matrix_to_array, execute_rescal, predict_rescal_connections_array
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -35,7 +36,7 @@ def need_connection_indices(all_needs, test_needs):
 
 # mask all connections at specified indices in the tensor
 def mask_idx_connections(tensor, indices):
-    slices = [slice.copy().toarray() for slice in tensor]
+    slices = [slice.copy() for slice in tensor]
     for idx in range(len(indices[0])):
         slices[CONNECTION_SLICE][indices[0][idx],indices[1][idx]] = 0
         slices[CONNECTION_SLICE][indices[1][idx],indices[0][idx]] = 0
@@ -44,22 +45,24 @@ def mask_idx_connections(tensor, indices):
 
 # mask all connections of some needs to all other needs
 def mask_need_connections(tensor, needs):
-    slices = [slice.copy().toarray() for slice in tensor]
+    slices = [lil_matrix(slice.copy()) for slice in tensor]
     for need in needs:
-        slices[CONNECTION_SLICE][need,:] = np.zeros(tensor[CONNECTION_SLICE].shape[0])
-        slices[CONNECTION_SLICE][:,need] = np.zeros(tensor[CONNECTION_SLICE].shape[0])
+        slices[CONNECTION_SLICE][need,:] = lil_matrix(np.zeros(tensor[CONNECTION_SLICE].shape[0]))
+        slices[CONNECTION_SLICE][:,need] = lil_matrix(np.zeros(tensor[CONNECTION_SLICE].shape[0])).transpose()
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
 # mask all connections but a number of X for each need
 def mask_all_but_X_connections_per_need(tensor, keep_x):
-    slices = [slice.copy().toarray() for slice in tensor]
+    slices = [slice.copy() for slice in tensor]
     for row in set(tensor[CONNECTION_SLICE].nonzero()[0]):
-        mask_idx = [col for col in range(len(slices[CONNECTION_SLICE][row,:])) if slices[CONNECTION_SLICE][row,col] == 1.0]
-        np.random.shuffle(mask_idx)
-        for col in mask_idx[keep_x:]:
-            slices[CONNECTION_SLICE][row,col] = 0
-            slices[CONNECTION_SLICE][col,row] = 0
+        if slices[CONNECTION_SLICE][row,:].getnnz() > keep_x:
+            mask_idx = [col for col in range(slices[CONNECTION_SLICE][row,:].getnnz())
+                        if slices[CONNECTION_SLICE][row, col] == 1.0]
+            np.random.shuffle(mask_idx)
+            for col in mask_idx[keep_x:]:
+                slices[CONNECTION_SLICE][row,col] = 0
+                slices[CONNECTION_SLICE][col,row] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
 
@@ -236,15 +239,9 @@ class EvaluationReport:
 # these masked connection entries.
 # Different approaches for connection prediction between needs are tested:
 # 1) RESCAL: choose a fixed threshold and take every connection that exceeds this threshold
-# 2) RESCAL: choose a fixed threshold and compare need similarity to predict connections
-# 3) compute the cosine similarity between attributes of the needs
-# 4) compute the weighted cosine similarity between attributes of the needs
-#
-# Input parameters:
-# argv[1]: folder with the following files:
-# - tensor matrix data files
-# - headers file
-# - connections file
+# 2) RESCALSIM: choose a fixed threshold and compare need similarity to predict connections
+# 3) COSINE: compute the cosine similarity between attributes of the needs
+# 4) COSINE_WEIGHTED: compute the weighted cosine similarity between attributes of the needs
 if __name__ == '__main__':
 
     # CLI processing
@@ -429,11 +426,11 @@ if __name__ == '__main__':
             if not (args.rescal[2] == 'True'):
                 temp_tensor = [test_tensor[CONNECTION_SLICE]] + test_tensor[NEED_TYPE_SLICE+1:]
                 _log.info('Do not use needtype slice for RESCAL')
-            P, A, R = predict_rescal_als(temp_tensor, RESCAL_RANK)
+            A, R = execute_rescal(temp_tensor, RESCAL_RANK)
 
             # evaluate the predictions
-            prediction = np.round_(P[:,:,CONNECTION_SLICE][idx_test], decimals=5)
-            precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], prediction)
+            prediction = np.round_(predict_rescal_connections_array(A, R, idx_test), decimals=5)
+            precision, recall, threshold = m.precision_recall_curve(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), prediction)
             optimal_threshold = get_optimal_threshold(recall, precision, threshold, F_BETA)
             _log.info('optimal RESCAL threshold would be ' + str(optimal_threshold) +
                       ' (for maximum F' + str(F_BETA) + '-score)')
@@ -443,18 +440,16 @@ if __name__ == '__main__':
 
             # use a fixed threshold to compute several measures
             _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
-            P_bin = predict_rescal_connections_by_threshold(P, RESCAL_THRESHOLD, offers, wants, test_needs)
-            binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
-            report1.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
+            P_bin = predict_rescal_connections_by_threshold(A, R, RESCAL_THRESHOLD, offers, wants, test_needs)
+            binary_pred = np.array(P_bin[idx_test])[0]
+            report1.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), binary_pred)
             if args.statistics:
-                write_precision_recall_curve_file(outfolder + "/rescal", "precision_recall_curve_fold%d.csv" % f,
-                                                  precision, recall, threshold)
-                TP, FP, threshold = m.roc_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], prediction)
-                write_ROC_curve_file(outfolder + "/rescal", "ROC_curve_fold%d.csv" % f,
-                                     TP, FP, threshold)
+                write_precision_recall_curve_file(outfolder + "/statistics/rescal_" + start_time,
+                                                  "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
+                TP, FP, threshold = m.roc_curve(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), prediction)
+                write_ROC_curve_file(outfolder + "/statistics/rescal_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
                 if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-                    output_statistic_details(outfolder + "/rescal", headers, GROUND_TRUTH[CONNECTION_SLICE].toarray(),
-                                         P_bin[:,:,CONNECTION_SLICE], idx_test)
+                    output_statistic_details(outfolder + "/statistics/rescal_" + start_time, headers, GROUND_TRUTH[CONNECTION_SLICE], P_bin, idx_test)
 
         if args.rescalsim:
             # execute the rescal algorithm
@@ -462,28 +457,23 @@ if __name__ == '__main__':
             if not (args.rescalsim[2] == 'True'):
                 temp_tensor = [test_tensor[CONNECTION_SLICE]] + test_tensor[NEED_TYPE_SLICE+1:]
                 _log.info('Do not use needtype slice for RESCAL')
-            P, A, R = predict_rescal_als(temp_tensor, RESCAL_RANK)
+            A, R = execute_rescal(temp_tensor, RESCAL_SIMILARITY_RANK)
 
             # use the most similar needs per need to predict connections
             _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
-            P_bin = predict_rescal_connections_by_need_similarity(P, A, RESCAL_SIMILARITY_THRESHOLD, offers, wants,
-                                                              test_needs)
-            binary_pred = P_bin[:,:,CONNECTION_SLICE][idx_test]
-            report2.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred)
+            P_bin = predict_rescal_connections_by_need_similarity(A, RESCAL_SIMILARITY_THRESHOLD, offers, wants, test_needs)
+            binary_pred = matrix_to_array(P_bin, idx_test)
+            report2.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE], idx_test), binary_pred)
 
             if args.statistics:
                 S = similarity_ranking(A)
                 y_prop = [1.0 - i for i in np.nan_to_num(S[idx_test])]
-                precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test],
-                                                                        y_prop)
-                write_precision_recall_curve_file(outfolder + "/rescal_similarity", "precision_recall_curve_fold%d.csv" % f,
-                                                  precision, recall, threshold)
-                TP, FP, threshold = m.roc_curve(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], y_prop)
-                write_ROC_curve_file(outfolder + "/rescal_similarity", "ROC_curve_fold%d.csv" % f,
-                                     TP, FP, threshold)
+                precision, recall, threshold = m.precision_recall_curve(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE], idx_test), y_prop)
+                write_precision_recall_curve_file(outfolder + "/statistics/rescal_similarity_" + start_time, "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
+                TP, FP, threshold = m.roc_curve(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE], idx_test), y_prop)
+                write_ROC_curve_file(outfolder + "/statistics/rescal_similarity_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
                 if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-                    output_statistic_details(outfolder + "/rescal_similarity", headers,
-                                         GROUND_TRUTH[CONNECTION_SLICE].toarray(), P_bin[:,:,CONNECTION_SLICE], idx_test)
+                    output_statistic_details(outfolder + "/statistics/rescal_similarity_" + start_time, headers, GROUND_TRUTH[CONNECTION_SLICE], P_bin, idx_test)
 
         if args.cosine:
             # execute the cosine similarity link prediction algorithm
@@ -492,10 +482,10 @@ if __name__ == '__main__':
             binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers),
                                                   offers, wants, test_needs, COSINE_SIMILARITY_THRESHOLD,
                                                   COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
-            report3.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
+            report3.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), binary_pred[idx_test])
             if MASK_ALL_CONNECTIONS_OF_TEST_NEED and args.statistics:
-                output_statistic_details(outfolder + "/cosine", headers,
-                                     GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
+                output_statistic_details(outfolder + "/statistics/cosine_" + start_time, headers, GROUND_TRUTH[CONNECTION_SLICE],
+                                         binary_pred, idx_test)
 
         if args.cosine_weigthed:
             # execute the weighted cosine similarity link prediction algorithm
@@ -504,10 +494,10 @@ if __name__ == '__main__':
             binary_pred = cosinus_link_prediciton(test_tensor, need_indices(headers), offers, wants, test_needs,
                                                   COSINE_WEIGHTED_SIMILARITY_THRESHOLD,
                                                   COSINE_WEIGHTED_SIMILARITY_TRANSITIVE_THRESHOLD, True)
-            report4.add_evaluation_data(GROUND_TRUTH[CONNECTION_SLICE].toarray()[idx_test], binary_pred[idx_test])
+            report4.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), binary_pred[idx_test])
             if MASK_ALL_CONNECTIONS_OF_TEST_NEED and args.statistics:
-                output_statistic_details(outfolder + "/weighted_cosine", headers,
-                                     GROUND_TRUTH[CONNECTION_SLICE].toarray(), binary_pred, idx_test)
+                output_statistic_details(outfolder + "/statistics/weighted_cosine_" + start_time, headers,
+                                     GROUND_TRUTH[CONNECTION_SLICE], binary_pred, idx_test)
 
         # end of fold loop
 
