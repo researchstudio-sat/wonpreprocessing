@@ -1,38 +1,35 @@
 wonpreprocessing
 ================
-Preprocessing of mail input for won matching using GATE. The MailProcessing
-Java program calls a Gate application (in src/main/resources/gate) to annotate mail content.
-Needs are created from WANT and OFFER mails and connections between them can
-be specified in a connections file.
+The projects implements preprocessing of mail input and data creation for won matching evaluation.
+The whole process is implemented in python using luigi (https://github.com/spotify/luigi).
+Different tasks are called in this process (e.g. Java-based tasks, python-based tasks)
 
-Afterwards a 3-way-tensor object is created as input for the rescal
-algorithm (in python) that can be used to predict further connections between needs.
+The 'MailProcessing' Java program calls a Gate application (in src/main/resources/) to annotate mail content.
+Needs are created from WANT and OFFER mails and connections between them can be specified in a connections file.
 
-The input and output of RESCAL can be further evaluated with an R script.
+Afterwards a 3-way-tensor object is created as input to evaluate different algorithms (e.g. RESCAL)
+in python ('evaluate_link_prediction.py') that can be used to predict further connections between needs.
+
+
+What to install:
+================
+* install Gate
+* install python (2.7 or 3.4) with scipy and numpy packages (e.g. Anaconda : http://continuum.io/downloads)
+* install python luigi package
+* install https://github.com/mnick/scikit-tensor
+* install https://github.com/mnick/rescal.py
 
 
 How to run:
 ============
-
-Preprocessing:
-* install Gate
-* set Gate home variable (-Dgate.home=<to gate base folder>)
-* setup input folder with mail files
-* setup output folder (including a subfolder "rescal" with "connections.txt" file)
-* install python (2.7 or 3.4) with scipy and numpy packages (e.g. Anaconda : http://continuum.io/downloads)
-* execute the python script "normalizefilenames.py" on the folder with the mail files
-* execute "src/main/MailProcessing.java" with following parameters:
-VM options: -Dgate.home=path_to_gate -Xmx3G
-program args: input_mail_folder output_mail_folder
+* a test data set (e.g. 'testdataset_20141112.zip') is needed to run the evaluation on
+* extract the test data set to a test data set folder
+* execute maven build (package) of this project to build the 'wonpreprocessing-1.0-SNAPSHOT-jar-with-dependencies.jar'
+* the whole process can be executed by starting the script 'luigi_evaluation.py' with its parameters
+* check the script for details
 
 
-RESCAL:
-* install python (2.7 or 3.4) with scipy and numpy packages (e.g. Anaconda : http://continuum.io/downloads)
-* install https://github.com/mnick/scikit-tensor
-* install https://github.com/mnick/rescal.py
-* execute "python-processing/src/main/python/evaluate_link_prediction.py" for an evaluation of several link
-prediction algorithms, including RESCAL
-* execute "python-processing/src/main/python/generate_rescal_output.py" for generation of rescal example output for preprocessed data
+
 
 R:
 * After execution of "python-processing/src/main/python/generate_rescal_output.py" this output can be

@@ -1,13 +1,9 @@
 __author__ = 'hfriedrich'
 
 import luigi
-import logging
 import argparse
 import luigi_evaluation_workflow
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%a, %d %b %Y %H:%M:%S')
 
 # This is the executed experiments script for the link prediction evaluation (e.g. on the 'testdataset_20141112').
 # It executes the luigi_evaluation_workflow with the parameters specified below.
