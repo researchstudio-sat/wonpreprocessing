@@ -16,7 +16,7 @@ class NormalizeFileNames(luigi.Task):
         return luigi.LocalTarget(self.outputfolder)
 
     def run(self):
-        os.system("normalize_file_names.py " + self.inputfolder + " " + self.inputfolder + "/normalized")
+        os.system("normalize_file_names.py " + self.inputfolder + " " + self.outputfolder)
 
 
 # After the file names are normalized, this task executes the Java/Gate preprocessing
@@ -87,6 +87,7 @@ class AbstractEvaluation(CreateTensor):
     maxconnections = luigi.IntParameter(default=1000)
     maskrandom = luigi.BooleanParameter(default=False)
     fbeta = luigi.FloatParameter(default=0.5)
+    numneeds = luigi.IntParameter(default=10000)
     statistics = luigi.BooleanParameter(default=False)
 
     def requires(self):
@@ -106,6 +107,7 @@ class AbstractEvaluation(CreateTensor):
         params += " -additional_slices " + self.additionalslices
         params += " -maxconnections " + str(self.maxconnections)
         params += " -fbeta " + str(self.fbeta)
+        params += " -numneeds " + str(self.numneeds)
         if (self.maskrandom):
             params += " -maskrandom "
         if (self.statistics):
@@ -121,8 +123,8 @@ class AbstractEvaluation(CreateTensor):
 # Execute the evaluation for the RESCAL (optionally including RESCAL similarity) algorithm
 class RESCALEvaluation(AbstractEvaluation):
 
-    rank = luigi.IntParameter()
-    threshold = luigi.FloatParameter()
+    rank = luigi.IntParameter(default=0)
+    threshold = luigi.FloatParameter(default=0.0)
     needtypeslice = luigi.BooleanParameter(default=False)
     rank2 = luigi.IntParameter(default=0)
     threshold2 = luigi.FloatParameter(default=0.0)

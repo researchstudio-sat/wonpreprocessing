@@ -18,7 +18,7 @@ from time import strftime
 from tools.cosine_link_prediction import cosinus_link_prediciton
 from tools.tensor_utils import CONNECTION_SLICE, NEED_TYPE_SLICE, connection_indices, read_input_tensor, need_indices, want_indices, offer_indices, \
     predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking, \
-    matrix_to_array, execute_rescal, predict_rescal_connections_array
+    matrix_to_array, execute_rescal, predict_rescal_connections_array, attribute_indices
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -57,14 +57,28 @@ def mask_all_but_X_connections_per_need(tensor, keep_x):
     slices = [slice.copy() for slice in tensor]
     for row in set(tensor[CONNECTION_SLICE].nonzero()[0]):
         if slices[CONNECTION_SLICE][row,:].getnnz() > keep_x:
-            mask_idx = [col for col in range(slices[CONNECTION_SLICE][row,:].getnnz())
-                        if slices[CONNECTION_SLICE][row, col] == 1.0]
+            mask_idx = slices[CONNECTION_SLICE].nonzero()[1][np.where(slices[CONNECTION_SLICE].nonzero()[0]==row)]
             np.random.shuffle(mask_idx)
             for col in mask_idx[keep_x:]:
                 slices[CONNECTION_SLICE][row,col] = 0
                 slices[CONNECTION_SLICE][col,row] = 0
     Tc = [csr_matrix(slice) for slice in slices]
     return Tc
+
+# choose number of x needs to keep and remove all other needs (including references to attrubutes, connections, etc)
+# that exceed this number
+def keep_x_random_needs(tensor, headers, keep_x):
+    rand_needs = need_indices(headers)
+    np.random.shuffle(rand_needs)
+    remove_needs = rand_needs[keep_x:]
+    slices = [lil_matrix(slice.copy()) for slice in tensor]
+    for slice in slices:
+        for need in remove_needs:
+            slice[need,:] = lil_matrix(np.zeros(slice.shape[0]))
+            slice[:,need] = lil_matrix(np.zeros(slice.shape[0])).transpose()
+    Tc = [csr_matrix(slice) for slice in slices]
+    newHeaders = ["NULL" if i in remove_needs else headers[i] for i in range(len(headers))]
+    return Tc, newHeaders
 
 # write precision/recall (and threshold) curve to file
 def write_precision_recall_curve_file(folder, outfilename, precision, recall, threshold):
@@ -276,6 +290,8 @@ if __name__ == '__main__':
                         type=float, help="f-beta measure to calculate during evaluation")
     parser.add_argument('-maxconnections', action="store", dest="maxconnections", default=1000,
                         type=int, help="maximum number of connections used to lern from per need")
+    parser.add_argument('-numneeds', action="store", dest="numneeds", default=10000,
+                        type=int, help="number of needs used for the evaluation")
     parser.add_argument('-statistics', action="store_true", dest="statistics",
                         help="write detailed statistics for the evaluation")
 
@@ -313,7 +329,6 @@ if __name__ == '__main__':
         data_input.append(folder + "/" + slice)
     header_input = folder + "/" + args.headers
     input_tensor, headers = read_input_tensor(header_input, data_input, True)
-    GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
 
     # TEST-PARAMETERS:
     # ===================
@@ -360,6 +375,11 @@ if __name__ == '__main__':
     _log.info('Test Setup:')
     _log.info('------------------------------')
 
+
+    if (args.numneeds < len(need_indices(headers))):
+        input_tensor, headers = keep_x_random_needs(input_tensor, headers, args.numneeds)
+
+    GROUND_TRUTH = [input_tensor[i].copy() for i in range(len(input_tensor))]
     needs = need_indices(headers)
     np.random.shuffle(needs)
     connections = need_connection_indices(need_indices(headers), needs)
@@ -389,7 +409,7 @@ if __name__ == '__main__':
               (len(need_indices(headers)), len(offers), len(wants)))
     _log.info('Number of test and train connections: %d' % len(connection_indices(input_tensor)[0]))
     _log.info('Number of total connections (for evaluation): %d' % len(connection_indices(GROUND_TRUTH)[0]))
-    _log.info('Number of attributes: %d' % (input_tensor[0].shape[0] - len(need_indices(headers))))
+    _log.info('Number of attributes: %d' % len(attribute_indices(headers)))
 
     _log.info('Starting %d-fold cross validation' % FOLDS)
 
@@ -429,7 +449,9 @@ if __name__ == '__main__':
             A, R = execute_rescal(temp_tensor, RESCAL_RANK)
 
             # evaluate the predictions
+            _log.info('start predict connections ...')
             prediction = np.round_(predict_rescal_connections_array(A, R, idx_test), decimals=5)
+            _log.info('stop predict connections')
             precision, recall, threshold = m.precision_recall_curve(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), prediction)
             optimal_threshold = get_optimal_threshold(recall, precision, threshold, F_BETA)
             _log.info('optimal RESCAL threshold would be ' + str(optimal_threshold) +

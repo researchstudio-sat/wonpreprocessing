@@ -67,6 +67,8 @@ public class MailProcessing
     options.addOption("gateapp" ,true, "gate application path (to .xgapp)");
     options.addOption("content", false, "create a content slice in addition to the subject and need type slices");
     options.addOption("stemming" , false, "use stemming in preprocessing");
+    options.addOption("ignoreNeedsNotFound", false, "ignore connections from the connection txt file that refer" +
+      " to needs that are not found in the input mail files");
 
     CommandLineParser parser = new BasicParser();
     try {
@@ -88,7 +90,7 @@ public class MailProcessing
       GateRESCALProcessing rescal = new GateRESCALProcessing(gateApp, workingFolder, createContentSlice, useStemming);
       rescal.processFilesWithGate(workingFolder);
       if (connections != null) {
-        rescal.addConnectionData(connections);
+        rescal.addConnectionData(connections, cmd.hasOption("ignoreNeedsNotFound"));
       }
       rescal.createRescalData(output);
 

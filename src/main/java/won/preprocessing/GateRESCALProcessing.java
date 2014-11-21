@@ -223,7 +223,7 @@ public class GateRESCALProcessing
    * between a Need and all following Needs until empty line in text file.
    *
    */
-  public void addConnectionData(String connectionFile) throws Exception {
+  public void addConnectionData(String connectionFile, boolean ignoreNeedsNotFound) throws Exception {
 
     logger.info("Create Need connection from input file: {}", connectionFile);
     BufferedReader reader = new BufferedReader(new FileReader(connectionFile));
@@ -233,27 +233,29 @@ public class GateRESCALProcessing
     while ((line = reader.readLine()) != null) {
       if (line.length() == 0) {
         // add a connection between the first need and all following needs until empty line
-        addConnection(needs);
+        addConnection(needs, ignoreNeedsNotFound);
         needs = new LinkedList<String>();
       } else {
         needs.add(line.trim());
       }
     }
-    addConnection(needs);
+    addConnection(needs, ignoreNeedsNotFound);
   }
 
   private String createNeedId(Document doc) throws UnsupportedEncodingException {
     return java.net.URLDecoder.decode(FilenameUtils.getBaseName(doc.getSourceUrl().getFile()), "UTF-8");
   }
 
-  private void addConnection(List<String> needs) throws Exception {
+  private void addConnection(List<String> needs, boolean ignoreNeedsNotFound) throws Exception {
     for (int i = 1; i < needs.size(); i++) {
       String need1 = needs.get(0);
       String need2 = needs.get(i);
       if (!matchingData.getNeeds().contains(need1) || !matchingData.getNeeds().contains(need2)) {
-        logger.error("add connection between new needs: \n{} \n{}", need1, need2);
-        throw new Exception("No need found in input directory for connection specified in connection file:  \n" +
-                              need1 + "\n" + need2);
+        logger.warn("add connection between new needs: \n{} \n{}", need1, need2);
+        if (!ignoreNeedsNotFound) {
+          throw new Exception("No need found in input directory for connection specified in connection file:  \n" +
+                                need1 + "\n" + need2);
+        }
       }
       matchingData.addNeedConnection(need1, need2);
     }

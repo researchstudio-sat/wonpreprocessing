@@ -15,7 +15,7 @@ What to install:
 ================
 * install Gate
 * install python (2.7 or 3.4) with scipy and numpy packages (e.g. Anaconda : http://continuum.io/downloads)
-* install python luigi package
+* install python luigi package (https://github.com/spotify/luigi)
 * install https://github.com/mnick/scikit-tensor
 * install https://github.com/mnick/rescal.py
 

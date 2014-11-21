@@ -33,12 +33,14 @@ def default_all_eval():
 
 # evaluate the influence of the rank on the quality and performance of link prediction
 def rank_eval():
-    rank_threshold = [(50,[0.001, 0.002, 0.003]),
-                      (100,[0.005, 0.006, 0.007]),
-                      (250,[0.01, 0.012, 0.015]),
-                      (500,[0.012, 0.015, 0.02]),
+    rank_threshold = [
+                      # (50,[0.001, 0.002, 0.003]),
+                      # (100,[0.005, 0.006, 0.007]),
+                      # (250,[0.01, 0.012, 0.015]),
+                      # (500,[0.012, 0.015, 0.02]),
                       (750,[0.015, 0.02, 0.025]),
-                      (1000,[0.02, 0.025, 0.03])]
+                      (1000,[0.02, 0.025, 0.03]),
+                      (2000,[0.025, 0.03, 0.04])]
     for tuple in rank_threshold:
         rank = tuple[0]
         for threshold in tuple[1]:
@@ -107,13 +109,49 @@ def maskrandom_eval():
     luigi.run(params + ['--rank',  '500', '--threshold', '0.3'])
 
 # evaluate the influence of the number of input connections (chosen randomly) to learn from on the RESCAL algorithm
-def connections_eval():
+def connection_rescalsim_eval():
     connection_count = [0, 1, 2, 5, 10]
     for con in connection_count:
-        params = ['RESCALEvaluation'] + base_config() + RESCAL_DEFAULT_PARAMS + RESCAL2_DEFAULT_PARAMS + \
+        params = ['RESCALEvaluation'] + base_config() + RESCAL2_DEFAULT_PARAMS + \
                  ['--maxconnections', str(con)] + ['--outputfolder', output_folder_config() + '/results/connections'] + \
                  ['--tensorfolder', output_folder_config() + '/tensor']
         luigi.run(params)
+
+# evaluate the influence of the number of input connections (chosen randomly) to learn from on the RESCALSIM algorithm
+def connections_rescal_eval():
+    connection_threshold = [(1,[0.007, 0.01, 0.02]),
+                            (2,[0.01, 0.02]),
+                            (5,[0.02, 0.03]),
+                            (10,[0.02, 0.03])]
+    for tuple in connection_threshold:
+        for threshold in tuple[1]:
+            con = tuple[0]
+            params = ['RESCALEvaluation'] + base_config() + ['--rank',  '500', '--threshold', str(threshold)] + \
+                     ['--maxconnections', str(con)] + ['--outputfolder', output_folder_config() + '/results/connections'] + \
+                     ['--tensorfolder', output_folder_config() + '/tensor']
+            luigi.run(params)
+
+def num_needs_eval():
+    params = ['AllEvaluation'] + base_config() + \
+             ['--outputfolder', output_folder_config() + '/results/num_needs'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor']
+
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.06', '--numneeds', '500'] +
+              ['--rank2',  '500', '--threshold2', '0.03'] +
+              ['--costhreshold', '0.6', '--costransthreshold', '0.0'] +
+              ['--wcosthreshold', '0.6', '--wcostransthreshold', '0.0'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.05', '--numneeds', '1000'] +
+              ['--rank2',  '500', '--threshold2', '0.04'] +
+              ['--costhreshold', '0.6', '--costransthreshold', '0.0'] +
+              ['--wcosthreshold', '0.6', '--wcostransthreshold', '0.0'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.04', '--numneeds', '2000'] +
+              ['--rank2',  '500', '--threshold2', '0.04'] +
+              ['--costhreshold', '0.5', '--costransthreshold', '0.0'] +
+              ['--wcosthreshold', '0.5', '--wcostransthreshold', '0.0'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.03', '--numneeds', '3000'] +
+              ['--rank2',  '500', '--threshold2', '0.05'] +
+              ['--costhreshold', '0.5', '--costransthreshold', '0.0'] +
+              ['--wcosthreshold', '0.5', '--wcostransthreshold', '0.0'])
 
 if __name__ == '__main__':
 
@@ -140,7 +178,9 @@ if __name__ == '__main__':
     maskrandom_eval()
     content_slice_eval()
     cosinetrans_eval()
+    num_needs_eval()
     rank_eval()
-    connections_eval()
+    connections_rescal_eval()
+    connection_rescalsim_eval()
 
 

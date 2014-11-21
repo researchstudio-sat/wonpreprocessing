@@ -108,6 +108,11 @@ def need_indices(headers):
     needs = [i for i in range(0, len(headers)) if (headers[i].startswith('Need:'))]
     return needs
 
+# return a list of indices which refer to rows/columns of attributes in the tensor
+def attribute_indices(headers):
+    attrs = [i for i in range(0, len(headers)) if (headers[i].startswith('Attr:'))]
+    return attrs
+
 # return a list of indices which refer to rows/columns of needs in the tensor that were checked manually for
 # connections to other needs.
 def manually_checked_needs(headers, connection_file):
@@ -144,6 +149,7 @@ def execute_rescal(input_tensor, rank):
         input_tensor, rank, init='nvecs', conv=1e-3,
         lambda_A=0, lambda_R=0, compute_fit='true'
     )
+    _log.info('rescal stopped processing')
     return A, R
 
 # execute the rescal algorithm and return a prediction tensor
@@ -169,6 +175,23 @@ def matrix_to_array(m, indices):
 # return the rescal predictions of the connection slice at the specified indices as an numpy array
 def predict_rescal_connections_array(A, R, indices):
     result = [np.dot(A[indices[0][i],:], np.dot(R[CONNECTION_SLICE], A[indices[1][i],:])) for i in range(len(indices[0]))]
+    return result
+
+# return the rescal predictions of the connection slice at the specified indices as an numpy array
+def predict_rescal_connections_array(A, R, indices):
+    # result = [np.dot(A[indices[0][i],:], np.dot(R[CONNECTION_SLICE], A[indices[1][i],:])) for i in range(len(indices[0]))]
+    # due to performance reasons choose this implementation, not the above one
+    sorted_idx = np.argsort(indices[0])
+    from_needs = [indices[0][i] for i in sorted_idx]
+    to_needs = [indices[1][i] for i in sorted_idx]
+    result = np.zeros(len(sorted_idx))
+    need = None
+    need_vector = None
+    for i in range(len(from_needs)):
+        if (need != from_needs[i]):
+            need = from_needs[i]
+            need_vector = np.dot(R[CONNECTION_SLICE], A[need,:])
+        result[sorted_idx[i]] = np.dot(A[to_needs[i],:], need_vector)
     return result
 
 # for rescal algorithm output predict connections by fixed threshold (higher threshold means higher precision)
