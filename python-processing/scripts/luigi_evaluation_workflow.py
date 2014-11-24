@@ -131,11 +131,12 @@ class RESCALEvaluation(AbstractEvaluation):
 
     def getParams(self):
         params = super(RESCALEvaluation, self).getParams()
-        params += " -rescal " + str(self.rank) + " " + \
-              str(self.threshold) + " " + str(self.needtypeslice)
+        if (self.rank != 0):
+            params += " -rescal " + str(self.rank) + " " + \
+                str(self.threshold) + " " + str(self.needtypeslice)
         if (self.rank2 != 0):
             params += " -rescalsim " + str(self.rank2) + " " + \
-                      str(self.threshold2) + " " + str(self.needtypeslice)
+                str(self.threshold2) + " " + str(self.needtypeslice)
         return params
 
     def run(self):

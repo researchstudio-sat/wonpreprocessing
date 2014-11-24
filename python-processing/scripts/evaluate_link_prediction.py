@@ -24,11 +24,11 @@ from tools.tensor_utils import CONNECTION_SLICE, NEED_TYPE_SLICE, connection_ind
 def need_connection_indices(all_needs, test_needs):
     allindices = ([],[])
     for row in test_needs:
-        fromneeds = [row for _ in range(len(all_needs))]
+        fromneeds = [row] * len(all_needs)
         toneeds = all_needs
         allindices[0].extend(fromneeds)
         allindices[1].extend(toneeds)
-    indices = [i for i in range(len(allindices[0]))]
+    indices = range(len(allindices[0]))
     np.random.shuffle(indices)
     ret0 = [allindices[0][i] for i in indices]
     ret1 = [allindices[1][i] for i in indices]
@@ -36,7 +36,7 @@ def need_connection_indices(all_needs, test_needs):
 
 # mask all connections at specified indices in the tensor
 def mask_idx_connections(tensor, indices):
-    slices = [slice.copy() for slice in tensor]
+    slices = [lil_matrix(slice.copy()) for slice in tensor]
     for idx in range(len(indices[0])):
         slices[CONNECTION_SLICE][indices[0][idx],indices[1][idx]] = 0
         slices[CONNECTION_SLICE][indices[1][idx],indices[0][idx]] = 0
@@ -54,7 +54,7 @@ def mask_need_connections(tensor, needs):
 
 # mask all connections but a number of X for each need
 def mask_all_but_X_connections_per_need(tensor, keep_x):
-    slices = [slice.copy() for slice in tensor]
+    slices = [lil_matrix(slice.copy()) for slice in tensor]
     for row in set(tensor[CONNECTION_SLICE].nonzero()[0]):
         if slices[CONNECTION_SLICE][row,:].getnnz() > keep_x:
             mask_idx = slices[CONNECTION_SLICE].nonzero()[1][np.where(slices[CONNECTION_SLICE].nonzero()[0]==row)]

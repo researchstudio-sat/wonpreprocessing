@@ -33,14 +33,13 @@ def default_all_eval():
 
 # evaluate the influence of the rank on the quality and performance of link prediction
 def rank_eval():
-    rank_threshold = [
-                      # (50,[0.001, 0.002, 0.003]),
-                      # (100,[0.005, 0.006, 0.007]),
-                      # (250,[0.01, 0.012, 0.015]),
-                      # (500,[0.012, 0.015, 0.02]),
+    rank_threshold = [(50,[0.001, 0.002, 0.003]),
+                      (100,[0.005, 0.006, 0.007]),
+                      (250,[0.01, 0.012, 0.015]),
+                      (500,[0.012, 0.015, 0.02]),
                       (750,[0.015, 0.02, 0.025]),
                       (1000,[0.02, 0.025, 0.03]),
-                      (2000,[0.025, 0.03, 0.04])]
+                      (2000,[0.02, 0.025, 0.03])]
     for tuple in rank_threshold:
         rank = tuple[0]
         for threshold in tuple[1]:
