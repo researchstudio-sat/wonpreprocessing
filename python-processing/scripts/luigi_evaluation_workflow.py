@@ -128,6 +128,7 @@ class RESCALEvaluation(AbstractEvaluation):
     needtypeslice = luigi.BooleanParameter(default=False)
     rank2 = luigi.IntParameter(default=0)
     threshold2 = luigi.FloatParameter(default=0.0)
+    connectionslice2 = luigi.BooleanParameter(default=False)
 
     def getParams(self):
         params = super(RESCALEvaluation, self).getParams()
@@ -136,7 +137,7 @@ class RESCALEvaluation(AbstractEvaluation):
                 str(self.threshold) + " " + str(self.needtypeslice)
         if (self.rank2 != 0):
             params += " -rescalsim " + str(self.rank2) + " " + \
-                str(self.threshold2) + " " + str(self.needtypeslice)
+                str(self.threshold2) + " " + str(self.needtypeslice) + " " + str(self.connectionslice2)
         return params
 
     def run(self):

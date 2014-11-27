@@ -299,8 +299,8 @@ if __name__ == '__main__':
     parser.add_argument('-rescal', action="store", dest="rescal", nargs=3,
                         metavar=('rank', 'threshold', 'useNeedTypeSlice'),
                         help="evaluate RESCAL algorithm")
-    parser.add_argument('-rescalsim', action="store", dest="rescalsim", nargs=3,
-                        metavar=('rank', 'threshold', 'useNeedTypeSlice'),
+    parser.add_argument('-rescalsim', action="store", dest="rescalsim", nargs=4,
+                        metavar=('rank', 'threshold', 'useNeedTypeSlice', 'useConnectionSlice'),
                         help="evaluate RESCAL similarity algorithm")
     parser.add_argument('-cosine', action="store", dest="cosine", nargs=2,
                         metavar=('threshold', 'transitive_threshold'),
@@ -475,9 +475,11 @@ if __name__ == '__main__':
 
         if args.rescalsim:
             # execute the rescal algorithm
-            temp_tensor = test_tensor
-            if not (args.rescalsim[2] == 'True'):
-                temp_tensor = [test_tensor[CONNECTION_SLICE]] + test_tensor[NEED_TYPE_SLICE+1:]
+            temp_tensor = test_tensor[NEED_TYPE_SLICE+1:]
+            if (args.rescalsim[2] == 'True'):
+                temp_tensor = [test_tensor[NEED_TYPE_SLICE]] + temp_tensor
+            if (args.rescalsim[3] == 'True'):
+                temp_tensor = [test_tensor[CONNECTION_SLICE]] + temp_tensor
                 _log.info('Do not use needtype slice for RESCAL')
             A, R = execute_rescal(temp_tensor, RESCAL_SIMILARITY_RANK)
 

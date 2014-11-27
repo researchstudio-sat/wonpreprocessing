@@ -14,7 +14,7 @@ import luigi_evaluation_workflow
 # - run this python script with its parameters
 
 RESCAL_DEFAULT_PARAMS = ['--rank',  '500', '--threshold', '0.02']
-RESCAL2_DEFAULT_PARAMS = ['--rank2',  '500', '--threshold2', '0.05']
+RESCAL2_DEFAULT_PARAMS = ['--rank2',  '500', '--threshold2', '0.06']
 COSINE_DEFAULT_PARAMS = ['--costhreshold', '0.5', '--costransthreshold', '0.0', '--wcosthreshold', '0.5', '--wcostransthreshold', '0.0']
 
 def output_folder_config():
@@ -113,7 +113,7 @@ def connection_rescalsim_eval():
     for con in connection_count:
         params = ['RESCALEvaluation'] + base_config() + RESCAL2_DEFAULT_PARAMS + \
                  ['--maxconnections', str(con)] + ['--outputfolder', output_folder_config() + '/results/connections'] + \
-                 ['--tensorfolder', output_folder_config() + '/tensor']
+                 ['--tensorfolder', output_folder_config() + '/tensor'] + ['--connectionslice2']
         luigi.run(params)
 
 # evaluate the influence of the number of input connections (chosen randomly) to learn from on the RESCALSIM algorithm
@@ -152,6 +152,7 @@ def num_needs_eval():
               ['--costhreshold', '0.5', '--costransthreshold', '0.0'] +
               ['--wcosthreshold', '0.5', '--wcostransthreshold', '0.0'])
 
+
 if __name__ == '__main__':
 
     # CLI processing
@@ -167,6 +168,7 @@ if __name__ == '__main__':
                         action="store", dest="luigitmp", required=False,
                         help="folder to luigi tmp folder")
     args = parser.parse_args()
+
 
     # run the experiments
     default_all_eval()
