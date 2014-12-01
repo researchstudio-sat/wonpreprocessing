@@ -44,16 +44,16 @@ class CreateTensor(luigi.Task):
                luigi.LocalTarget(self.tensorfolder + "/content.mtx")
 
     def run(self):
-        java_call = "java -Xmx3G -Dgate.home=" + self.gatehome
-        java_call += " -jar " + self.jarfile
-        params = " -gateapp " + self.gateapp
-        params += " -input " + self.input()[0].path
-        params += " -output " + self.tensorfolder
-        params += " -connections " + self.connections
-        if (self.stemming):
-            params += " -stemming"
-        if (self.content):
-            params += " -content"
+        java_call = ['java', '-Xmx3G', '-Dgate.home=' + self.gatehome,
+                     '-jar', self.jarfile]
+        params = ['-gateapp', self.gateapp,
+                  '-input', self.input()[0].path,
+                  '-output', self.tensorfolder,
+                  '-connections', self.connections]
+        if self.stemming:
+            params.append('-stemming')
+        if self.content:
+            params.append('-content')
         print subprocess.check_output(java_call + params)
 
 
