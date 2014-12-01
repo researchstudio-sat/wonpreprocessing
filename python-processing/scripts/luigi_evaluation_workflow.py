@@ -180,6 +180,40 @@ class CosineEvaluation(AbstractEvaluation):
     def run(self):
         os.system("evaluate_link_prediction.py " + self.getParams())
 
+# Execute the evaluation for the combined version of cosine and rescal algorithm
+class CombineCosineRescalEvaluation(AbstractEvaluation):
+
+    rank = luigi.IntParameter()
+    rescalthreshold = luigi.FloatParameter()
+    cosinethreshold = luigi.FloatParameter()
+    needtypeslice = luigi.BooleanParameter(default=False)
+
+    def getParams(self):
+        params = super(CombineCosineRescalEvaluation, self).getParams()
+        params +=" -cosine_rescal " + str(self.rank) + " " + str(self.rescalthreshold) + \
+                 " " + str(self.cosinethreshold) + " " + str(self.needtypeslice)
+        return params
+
+    def run(self):
+        os.system("evaluate_link_prediction.py " + self.getParams())
+
+# Execute the evaluation for the prediction intersection between cosine and rescal algorithm
+class IntersectionEvaluation(AbstractEvaluation):
+
+    rank = luigi.IntParameter()
+    rescalthreshold = luigi.FloatParameter()
+    cosinethreshold = luigi.FloatParameter()
+    needtypeslice = luigi.BooleanParameter(default=False)
+
+    def getParams(self):
+        params = super(IntersectionEvaluation, self).getParams()
+        params +=" -intersection " + str(self.rank) + " " + str(self.rescalthreshold) + \
+                 " " + str(self.cosinethreshold) + " " + str(self.needtypeslice)
+        return params
+
+    def run(self):
+        os.system("evaluate_link_prediction.py " + self.getParams())
+
 # Execute the evaluation for the RESCAL (optionally including RESCAL similarity)
 # algorithm, including an additional category slice
 class CategoryEvaluation(RESCALEvaluation):

@@ -15,7 +15,8 @@ import luigi_evaluation_workflow
 
 RESCAL_DEFAULT_PARAMS = ['--rank',  '500', '--threshold', '0.02']
 RESCAL2_DEFAULT_PARAMS = ['--rank2',  '500', '--threshold2', '0.06']
-COSINE_DEFAULT_PARAMS = ['--costhreshold', '0.5', '--costransthreshold', '0.0', '--wcosthreshold', '0.5', '--wcostransthreshold', '0.0']
+COSINE_DEFAULT_PARAMS = ['--costhreshold', '0.2', '--costransthreshold', '0.0', '--wcosthreshold', '0.5',
+                         '--wcostransthreshold', '0.0']
 
 def output_folder_config():
     return args.testdataset + '/evaluation'
@@ -152,6 +153,23 @@ def num_needs_eval():
               ['--costhreshold', '0.5', '--costransthreshold', '0.0'] +
               ['--wcosthreshold', '0.5', '--wcostransthreshold', '0.0'])
 
+# evaluation for the combined version of cosine and rescal algorithm
+def combine_eval():
+    params = ['CombineCosineRescalEvaluation'] + base_config() + \
+             ['--outputfolder', output_folder_config() + '/results/combine'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor']
+    luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.02', '--cosinethreshold', '0.2'])
+    luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.02', '--cosinethreshold', '0.3'])
+
+# evaluation for the prediction intersection between cosine and rescal algorithm
+def intersection_eval():
+    params = ['IntersectionEvaluation'] + base_config() + \
+                 ['--outputfolder', output_folder_config() + '/results/intersection'] + \
+                 ['--tensorfolder', output_folder_config() + '/tensor']
+    luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.01', '--cosinethreshold', '0.5'])
+    luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.005', '--cosinethreshold', '0.5'])
+    luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.01', '--cosinethreshold', '0.6'])
+    luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.005', '--cosinethreshold', '0.6'])
 
 if __name__ == '__main__':
 
@@ -169,7 +187,6 @@ if __name__ == '__main__':
                         help="folder to luigi tmp folder")
     args = parser.parse_args()
 
-
     # run the experiments
     default_all_eval()
     no_stopwords()
@@ -179,9 +196,12 @@ if __name__ == '__main__':
     maskrandom_eval()
     content_slice_eval()
     cosinetrans_eval()
-    num_needs_eval()
-    rank_eval()
+    intersection_eval()
+    combine_eval()
     connections_rescal_eval()
     connection_rescalsim_eval()
+    num_needs_eval()
+    rank_eval()
+
 
 

@@ -80,6 +80,56 @@ def keep_x_random_needs(tensor, headers, keep_x):
     newHeaders = ["NULL" if i in remove_needs else headers[i] for i in range(len(headers))]
     return Tc, newHeaders
 
+# predict connections by combining the execution of algorithms. First execute the cosine similarity
+# algorithm (preferably choosing a threshold to get a high precision) and with this predicted matches execute the
+# rescal algorithm afterwards (to increase the recall)
+def predict_combine_cosine_rescal(input_tensor, headers, test_needs, idx_test, rank,
+                                  rescal_threshold, cosine_threshold, useNeedTypeSlice=False):
+
+    wants = want_indices(input_tensor, headers)
+    offers = offer_indices(input_tensor, headers)
+
+    # execute the cosine algorithm first
+    binary_pred_cosine = cosinus_link_prediciton(input_tensor, need_indices(headers),
+                                          offers, wants, test_needs, cosine_threshold, 0.0, False)
+
+    # use the connection prediction of the cosine algorithm as input for rescal
+    temp_tensor = [csr_matrix(binary_pred_cosine)] + input_tensor[CONNECTION_SLICE+1:]
+    if not (useNeedTypeSlice):
+        temp_tensor = [input_tensor[CONNECTION_SLICE]] + input_tensor[NEED_TYPE_SLICE+1:]
+    A,R = execute_rescal(temp_tensor, rank)
+    P_bin = predict_rescal_connections_by_threshold(A, R, rescal_threshold, offers, wants, test_needs)
+
+    # return both predictions the earlier cosine and the combined rescal
+    binary_pred_cosine = binary_pred_cosine[idx_test]
+    binary_pred_rescal = matrix_to_array(P_bin, idx_test)
+    return binary_pred_cosine, binary_pred_rescal
+
+# predict connections by combining the execution of algorithms. Compute the predictions of connections for both
+# cosine similarity and rescal algorithm. Then return the intersection of the predictions
+def predict_intersect_cosine_rescal(input_tensor, headers, test_needs, idx_test, rank,
+                                    rescal_threshold, cosine_threshold, useNeedTypeSlice=False):
+
+    wants = want_indices(input_tensor, headers)
+    offers = offer_indices(input_tensor, headers)
+
+    # execute the cosine algorithm
+    binary_pred_cosine = cosinus_link_prediciton(input_tensor, need_indices(headers),
+                                                 offers, wants, test_needs, cosine_threshold, 0.0, False)
+
+    # execute the rescal algorithm
+    temp_tensor = input_tensor
+    if not (useNeedTypeSlice):
+        temp_tensor = [input_tensor[CONNECTION_SLICE]] + input_tensor[NEED_TYPE_SLICE+1:]
+    A,R = execute_rescal(temp_tensor, rank)
+    P_bin = predict_rescal_connections_by_threshold(A, R, rescal_threshold, offers, wants, test_needs)
+
+    # return the intersection of the prediction of both algorithms
+    binary_pred_cosine = binary_pred_cosine[idx_test]
+    binary_pred_rescal = matrix_to_array(P_bin, idx_test)
+    binary_pred = [min(binary_pred_cosine[i], binary_pred_rescal[i]) for i in range(len(binary_pred_cosine))]
+    return binary_pred, binary_pred_cosine, binary_pred_rescal
+
 # write precision/recall (and threshold) curve to file
 def write_precision_recall_curve_file(folder, outfilename, precision, recall, threshold):
     if not os.path.exists(folder):
@@ -308,6 +358,12 @@ if __name__ == '__main__':
     parser.add_argument('-cosine_weighted', action="store", dest="cosine_weigthed",
                         nargs=2, metavar=('threshold', 'transitive_threshold'),
                         help="evaluate weighted cosine similarity algorithm")
+    parser.add_argument('-cosine_rescal', action="store", dest="cosine_rescal",
+                        nargs=4, metavar=('rescal_rank', 'rescal_threshold', 'cosine_threshold', 'useNeedTypeSlice'),
+                        help="evaluate combined algorithms cosine similarity and rescal")
+    parser.add_argument('-intersection', action="store", dest="intersection",
+                        nargs=4, metavar=('rescal_rank', 'rescal_threshold', 'cosine_threshold', 'useNeedTypeSlice'),
+                        help="compute the prediction intersection of algorithms cosine similarity and rescal")
 
     args = parser.parse_args()
     folder = args.inputfolder
@@ -402,6 +458,11 @@ if __name__ == '__main__':
     report2 = EvaluationReport(F_BETA)
     report3 = EvaluationReport(F_BETA)
     report4 = EvaluationReport(F_BETA)
+    report5 = EvaluationReport(F_BETA)
+    report6 = EvaluationReport(F_BETA)
+    report7 = EvaluationReport(F_BETA)
+    report8 = EvaluationReport(F_BETA)
+    report9 = EvaluationReport(F_BETA)
 
     _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
@@ -438,7 +499,6 @@ if __name__ == '__main__':
             test_needs = needs
         _log.info('------------------------------')
 
-
         # evaluate the algorithms
         if args.rescal:
             # execute the rescal algorithm
@@ -463,7 +523,7 @@ if __name__ == '__main__':
             # use a fixed threshold to compute several measures
             _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
             P_bin = predict_rescal_connections_by_threshold(A, R, RESCAL_THRESHOLD, offers, wants, test_needs)
-            binary_pred = np.array(P_bin[idx_test])[0]
+            binary_pred = matrix_to_array(P_bin, idx_test)
             report1.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), binary_pred)
             if args.statistics:
                 write_precision_recall_curve_file(outfolder + "/statistics/rescal_" + start_time,
@@ -523,6 +583,32 @@ if __name__ == '__main__':
                 output_statistic_details(outfolder + "/statistics/weighted_cosine_" + start_time, headers,
                                      GROUND_TRUTH[CONNECTION_SLICE], binary_pred, idx_test)
 
+        if args.cosine_rescal:
+            cosine_pred, rescal_pred = predict_combine_cosine_rescal(test_tensor, headers, test_needs, idx_test,
+                                                                     int(args.cosine_rescal[0]),
+                                                                     float(args.cosine_rescal[1]),
+                                                                     float(args.cosine_rescal[2]),
+                                                                     bool(args.cosine_rescal[3]))
+            _log.info('First step for prediction of cosine similarity with threshold: %f:' % float(args.cosine_rescal[2]))
+            report5.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), cosine_pred)
+            _log.info('And second step for combined RESCAL prediction with parameters: %d, %f:'
+                      % (int(args.cosine_rescal[0]), float(args.cosine_rescal[1])))
+            report6.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), rescal_pred)
+
+        if args.intersection:
+            inter_pred, cosine_pred, rescal_pred = predict_intersect_cosine_rescal(test_tensor, headers, test_needs,
+                                                                                   idx_test, int(args.intersection[0]), float(args.intersection[1]),
+                                                                                   float(args.intersection[2]), bool(args.intersection[3]))
+            _log.info('Intersection of predictions of cosine similarity and rescal algorithms: ')
+            report9.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), inter_pred)
+
+            _log.info('For RESCAL prediction with threshold %f:' % float(args.intersection[1]))
+            report8.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), rescal_pred)
+
+            _log.info('For prediction of cosine similarity between needs with thresholds: %f:' %
+                      float(args.intersection[2]))
+            report7.add_evaluation_data(matrix_to_array(GROUND_TRUTH[CONNECTION_SLICE],idx_test), cosine_pred)
+
         # end of fold loop
 
     _log.info('====================================================')
@@ -545,6 +631,19 @@ if __name__ == '__main__':
         _log.info('For prediction of weighted cosine similarity between needs with thresholds: %f, %f'
                   ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
         report4.summary()
+    if args.cosine_rescal:
+        _log.info('First step for prediction of cosine similarity with threshold: %f:' % float(args.cosine_rescal[2]))
+        report5.summary()
+        _log.info('And second step for combined RESCAL prediction with threshold: %f:' % float(args.cosine_rescal[1]))
+        report6.summary()
+    if args.intersection:
+        _log.info('Intersection of predictions of cosine similarity and rescal algorithms: ')
+        report9.summary()
+        _log.info('For RESCAL prediction with threshold %f:' % float(args.intersection[1]))
+        report8.summary()
+        _log.info('For prediction of cosine similarity between needs with thresholds: %f:' %
+                  float(args.intersection[2]))
+        report7.summary()
 
 
 
