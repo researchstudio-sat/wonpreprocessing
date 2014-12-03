@@ -11,12 +11,13 @@ class NormalizeFileNames(luigi.Task):
 
     inputfolder = luigi.Parameter()
     outputfolder = luigi.Parameter()
+    python = luigi.Parameter(default='python')
 
     def output(self):
         return luigi.LocalTarget(self.outputfolder)
 
     def run(self):
-        os.system("normalize_file_names.py " + self.inputfolder + " " + self.outputfolder)
+        os.system("" + self.python + " normalize_file_names.py " + self.inputfolder + " " + self.outputfolder)
 
 
 # After the file names are normalized, this task executes the Java/Gate preprocessing
@@ -31,9 +32,11 @@ class CreateTensor(luigi.Task):
     gateapp = luigi.Parameter(default="../../src/main/resources/gate/application.xgapp")
     stemming = luigi.BooleanParameter(default=False)
     content = luigi.BooleanParameter(default=False)
+    java = luigi.Parameter(default='java')
+    python = luigi.Parameter(default='python')
 
     def requires(self):
-        return [NormalizeFileNames(self.inputfolder, self.inputfolder + "/normalized")]
+        return [NormalizeFileNames(self.inputfolder, self.inputfolder + "/normalized", self.python)]
 
     def output(self):
         return luigi.LocalTarget(self.tensorfolder), \
@@ -44,7 +47,7 @@ class CreateTensor(luigi.Task):
                luigi.LocalTarget(self.tensorfolder + "/content.mtx")
 
     def run(self):
-        java_call = ['java', '-Xmx3G', '-Dgate.home=' + self.gatehome,
+        java_call = [self.java, '-Xmx3G', '-Dgate.home=' + self.gatehome,
                      '-jar', self.jarfile]
         params = ['-gateapp', self.gateapp,
                   '-input', self.input()[0].path,
@@ -67,7 +70,8 @@ class CreateCategorySlice(CreateTensor):
         return [CreateTensor(self.gatehome, self.jarfile,
                              self.inputfolder, self.tensorfolder,
                              self.connections, self.gateapp,
-                             self.stemming, self.content)]
+                             self.stemming, self.content,
+                             self.java, self.python)]
 
     def output(self):
         return luigi.LocalTarget(self.tensorfolder + "/category.mtx")
@@ -76,7 +80,7 @@ class CreateCategorySlice(CreateTensor):
        return self.input()[0][0].path + " " + self.allneeds
 
     def run(self):
-        os.system("create_category_slice.py " + self.getParams())
+        os.system("" + self.python + "create_category_slice.py " + self.getParams())
 
 
 # Use this task as a base class for different evaluation task variants
@@ -94,7 +98,8 @@ class AbstractEvaluation(CreateTensor):
         return [CreateTensor(self.gatehome, self.jarfile,
                              self.inputfolder, self.tensorfolder,
                              self.connections, self.gateapp,
-                             self.stemming, self.content)]
+                             self.stemming, self.content,
+                             self.java, self.python)]
 
     def getEvaluationFolder(self):
         return self.input()[0][0].path
@@ -117,7 +122,7 @@ class AbstractEvaluation(CreateTensor):
         return params
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 
 # Execute the evaluation for the RESCAL (optionally including RESCAL similarity) algorithm
@@ -141,7 +146,7 @@ class RESCALEvaluation(AbstractEvaluation):
         return params
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 
 # Execute the evaluation for the all algorithms
@@ -161,7 +166,7 @@ class AllEvaluation(RESCALEvaluation):
         return params
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 # Execute the evaluation for the cosine algorithm
 class CosineEvaluation(AbstractEvaluation):
@@ -178,7 +183,7 @@ class CosineEvaluation(AbstractEvaluation):
         return params
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 # Execute the evaluation for the combined version of cosine and rescal algorithm
 class CombineCosineRescalEvaluation(AbstractEvaluation):
@@ -195,7 +200,7 @@ class CombineCosineRescalEvaluation(AbstractEvaluation):
         return params
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 # Execute the evaluation for the prediction intersection between cosine and rescal algorithm
 class IntersectionEvaluation(AbstractEvaluation):
@@ -212,7 +217,7 @@ class IntersectionEvaluation(AbstractEvaluation):
         return params
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 # Execute the evaluation for the RESCAL (optionally including RESCAL similarity)
 # algorithm, including an additional category slice
@@ -229,14 +234,16 @@ class CategoryEvaluation(RESCALEvaluation):
         return [CreateTensor(self.gatehome, self.jarfile,
                              self.inputfolder, self.tensorfolder,
                              self.connections, self.gateapp,
-                             self.stemming, self.content),
+                             self.stemming, self.content,
+                             self.java, self.python),
                 CreateCategorySlice(self.gatehome, self.jarfile,
                                     self.inputfolder, self.tensorfolder,
                                     self.connections, self.gateapp,
                                     self.stemming, self.content,
+                                    self.java, self.python,
                                     self.allneeds)]
 
     def run(self):
-        os.system("evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 

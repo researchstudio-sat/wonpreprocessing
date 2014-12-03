@@ -22,8 +22,13 @@ def output_folder_config():
     return args.testdataset + '/evaluation'
 
 def base_config():
-    return ['--lock-pid-dir', args.luigitmp, '--local-scheduler', '--gatehome', args.gatehome,
+    base_params = ['--lock-pid-dir', args.luigitmp, '--local-scheduler', '--gatehome', args.gatehome,
             '--inputfolder', args.testdataset + '/data', '--connections', args.testdataset + '/connections.txt']
+    if args.python:
+        base_params.extend(['--python', args.python])
+    if args.java:
+        base_params.extend(['--java', args.java])
+    return base_params
 
 # evaluate all algorithms in their default configuration
 def default_all_eval():
@@ -182,9 +187,17 @@ if __name__ == '__main__':
     parser.add_argument('-gatehome',
                         action="store", dest="gatehome", required=True,
                         help="folder to gate home")
+    # Optional arguments.
     parser.add_argument('-luigitmp',
                         action="store", dest="luigitmp", required=False,
                         help="folder to luigi tmp folder")
+    parser.add_argument('-java',
+                        action='store', dest='java', required=False,
+                        help='path to java')
+    parser.add_argument('-python',
+                        action='store', dest='python', required=False,
+                        help='path to python')
+
     args = parser.parse_args()
 
     # run the experiments
