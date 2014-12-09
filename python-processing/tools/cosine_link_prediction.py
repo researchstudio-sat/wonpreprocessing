@@ -5,7 +5,7 @@ from math import log10
 
 from scipy.spatial.distance import cosine
 
-from tools.tensor_utils import CONNECTION_SLICE, ATTR_SUBJECT_SLICE
+from tools.tensor_utils import SparseTensor
 
 
 #FUNCTIONS
@@ -77,14 +77,16 @@ def termFrequencies (attributemat):
 #   comparison to the origin need. To get transitive predictions set "transitive_threshold" > "threshold" (e.g. set
 #   "transitive_threshold" value to 0 for no transitive connection prediction).
 # weighted: True if the attribute terms should be weighted
-def cosinus_link_prediciton(tensormatrix, allneeds, offers, wants, new_elements, threshold, transitive_threshold,
-                            weighted):
+def cosinus_link_prediciton(tensor, new_elements, threshold, transitive_threshold, weighted):
     # slice 2 of the tensor are the attributes
-    attributemat = tensormatrix[ATTR_SUBJECT_SLICE]
+    attributemat = tensor.getSliceMatrix(SparseTensor.ATTR_SUBJECT_SLICE)
     attributemat = attributemat.toarray()
+    allneeds = tensor.getNeedIndices()
+    offers = tensor.getOfferIndices()
+    wants = tensor.getWantIndices()
 
     # slice 0 of the tensor are the connections
-    connectionmat = tensormatrix[CONNECTION_SLICE]
+    connectionmat = tensor.getSliceMatrix(SparseTensor.CONNECTION_SLICE)
     connectionmat = connectionmat.toarray()
 
     for new_element in new_elements:

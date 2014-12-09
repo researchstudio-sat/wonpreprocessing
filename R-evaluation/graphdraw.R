@@ -1,5 +1,8 @@
 library("igraph")
 library("Matrix")
+library("rgexf")
+library("XML")
+
 
 # This script loads some the output of the rescal tensor processing by the python program 
 # "generate_rescal_output.py". It loads the data from the connection slice of the tensor
@@ -17,16 +20,59 @@ concat <- function(s1, s2) {
   return (paste(c(s1,s2), collapse=''))
 }
 
+# Converts the given igraph object to GEXF format and saves it at the given filepath location
+#     g: input igraph object to be converted to gexf format
+#     filepath: file location where the output gexf file should be saved
+#
+saveAsGEXF = function(g, filepath="converted_graph.gexf")
+{
+  require(igraph)
+  require(rgexf)
+  
+  # gexf nodes require two column data frame (id, label)
+  # check if the input vertices has label already present
+  # if not, just have the ids themselves as the label
+  if(is.null(V(g)$label))
+    V(g)$label <- as.character(V(g))
+  
+  # similarily if edges does not have weight, add default 1 weight
+  if(is.null(E(g)$weight))
+    E(g)$weight <- rep.int(1, ecount(g))
+  
+  nodes <- data.frame(cbind(V(g), V(g)$label))
+  edges <- t(Vectorize(get.edge, vectorize.args='id')(g, 1:ecount(g)))
+  
+  # combine all node attributes into a matrix (and take care of & for xml)
+  vAttrNames <- setdiff(list.vertex.attributes(g), "label") 
+  nodesAtt <- data.frame(sapply(vAttrNames, function(attr) sub("&", "&",get.vertex.attribute(g, attr))))
+  
+  # combine all edge attributes into a matrix (and take care of & for xml)
+  eAttrNames <- setdiff(list.edge.attributes(g), "weight") 
+  edgesAtt <- data.frame(sapply(eAttrNames, function(attr) sub("&", "&",get.edge.attribute(g, attr))))
+  
+  # combine all graph attributes into a meta-data
+  graphAtt <- sapply(list.graph.attributes(g), function(attr) sub("&", "&",get.graph.attribute(g, attr)))
+  
+  # generate the gexf object
+  output <- write.gexf(nodes, edges, 
+                       edgesWeight=E(g)$weight,
+                       edgesAtt = edgesAtt,
+                       nodesAtt = nodesAtt,
+                       meta=c(list(creator="Gopalakrishna Palem", description="igraph -> gexf converted file", keywords="igraph, gexf, R, rgexf"), graphAtt))
+  
+  print(output, filepath, replace=T)
+}
+
 # load the input data files
 # headers: headers of the tensor, need and attribute names
 # incon: input connection slice of the tensor to the rescal algorithm
 # outcon: output (predicted) connection slice of the rescal algorithm
 # needtype: need type slice of the tensor
-dataFolder <- "C:/dev/temp/testcorpus/complete/out/rescal/"
+dataFolder <- "C:/dev/temp/testdataset_20141112/evaluation/tensor/"
 headers <- readLines(concat(dataFolder,"headers.txt"))
-incon <- readMM(concat(dataFolder,"data-0.mtx"))
-outcon <- readMM(concat(dataFolder,"outcon.mtx"))
-needtype <- readMM(concat(dataFolder,"data-1.mtx"))
+incon <- readMM(concat(dataFolder,"connection.mtx"))
+outcon <- readMM(concat(dataFolder,"connection.mtx"))
+needtype <- readMM(concat(dataFolder,"needtype.mtx"))
 
 # create the graphs
 igraph.options(vertex.size=3, vertex.label=NA)
@@ -54,6 +100,7 @@ V(g_union)$need <- ifelse(is.na(V(g_union)$need_1), V(g_union)$need_2, V(g_union
 V(g_union)$type <- ifelse(is.na(V(g_union)$type_1), V(g_union)$type_2, V(g_union)$type_1)
 V(g_incon)$color <- ifelse(V(g_incon)$type=="OFFER", "blue", ifelse(V(g_incon)$type=="WANT", "red", "green"))
 V(g_union)$color <- ifelse(V(g_union)$type=="OFFER", "blue", ifelse(V(g_union)$type=="WANT", "red", "green"))
+V(g_union)$value <- 1.0
 
 # print a summary of the graph measures
 cat("Input connections graph summary:", "\nNumber of Needs: ", vcount(g_incon_all),
@@ -91,6 +138,10 @@ layin <- layall[which(is.element(V(g_incon)$name, V(g_union)$name)),]
 plot(g_incon, layout=layin, edge.curved=TRUE)
 Sys.sleep(5)
 plot(g_union, layout=layall, edge.curved=TRUE)
+
+# save the graph for use in gephi
+saveAsGEXF(g_union, "testgraph3.gexf")
+
 
 # use this to select specific nodes and see their need name
 target <- identify(layall[,1], layall[,2])

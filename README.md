@@ -18,6 +18,7 @@ What to install:
 * install python luigi package (https://github.com/spotify/luigi)
 * install https://github.com/mnick/scikit-tensor
 * install https://github.com/mnick/rescal.py
+* install python pygexf package (https://pythonhosted.org/pygexf/users.html)
 
 
 How to run:

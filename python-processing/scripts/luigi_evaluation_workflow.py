@@ -84,7 +84,7 @@ class CreateCategorySlice(CreateTensor):
 
 
 # Use this task as a base class for different evaluation task variants
-class AbstractEvaluation(CreateTensor):
+class BaseEvaluation(CreateTensor):
 
     outputfolder = luigi.Parameter(default=None)
     additionalslices = luigi.Parameter(default="subject.mtx")
@@ -122,11 +122,11 @@ class AbstractEvaluation(CreateTensor):
         return params
 
     def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
+        os.system("" + self.python + " evaluate_link_prediction.py " + self.getParams())
 
 
 # Execute the evaluation for the RESCAL (optionally including RESCAL similarity) algorithm
-class RESCALEvaluation(AbstractEvaluation):
+class RESCALEvaluation(BaseEvaluation):
 
     rank = luigi.IntParameter(default=0)
     threshold = luigi.FloatParameter(default=0.0)
@@ -145,9 +145,6 @@ class RESCALEvaluation(AbstractEvaluation):
                 str(self.threshold2) + " " + str(self.needtypeslice) + " " + str(self.connectionslice2)
         return params
 
-    def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
-
 
 # Execute the evaluation for the all algorithms
 class AllEvaluation(RESCALEvaluation):
@@ -165,11 +162,8 @@ class AllEvaluation(RESCALEvaluation):
         params +=" -cosine_weighted " + str(self.wcosthreshold) + " " + str(self.wcostransthreshold)
         return params
 
-    def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
-
 # Execute the evaluation for the cosine algorithm
-class CosineEvaluation(AbstractEvaluation):
+class CosineEvaluation(BaseEvaluation):
 
     costhreshold = luigi.FloatParameter()
     costransthreshold = luigi.FloatParameter()
@@ -182,11 +176,8 @@ class CosineEvaluation(AbstractEvaluation):
         params +=" -cosine_weighted " + str(self.wcosthreshold) + " " + str(self.wcostransthreshold)
         return params
 
-    def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
-
 # Execute the evaluation for the combined version of cosine and rescal algorithm
-class CombineCosineRescalEvaluation(AbstractEvaluation):
+class CombineCosineRescalEvaluation(BaseEvaluation):
 
     rank = luigi.IntParameter()
     rescalthreshold = luigi.FloatParameter()
@@ -199,11 +190,8 @@ class CombineCosineRescalEvaluation(AbstractEvaluation):
                  " " + str(self.cosinethreshold) + " " + str(self.needtypeslice)
         return params
 
-    def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
-
 # Execute the evaluation for the prediction intersection between cosine and rescal algorithm
-class IntersectionEvaluation(AbstractEvaluation):
+class IntersectionEvaluation(BaseEvaluation):
 
     rank = luigi.IntParameter()
     rescalthreshold = luigi.FloatParameter()
@@ -216,9 +204,6 @@ class IntersectionEvaluation(AbstractEvaluation):
                  " " + str(self.cosinethreshold) + " " + str(self.needtypeslice)
         return params
 
-    def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
-
 # Execute the evaluation for the RESCAL (optionally including RESCAL similarity)
 # algorithm, including an additional category slice
 class CategoryEvaluation(RESCALEvaluation):
@@ -226,7 +211,7 @@ class CategoryEvaluation(RESCALEvaluation):
     allneeds = luigi.Parameter()
 
     def getParams(self):
-        self.additionalslices = "subject.mtx category.mtx"
+        self.additionalslices = "subject.mtx content.mtx category.mtx"
         params = super(CategoryEvaluation, self).getParams()
         return params
 
@@ -243,7 +228,5 @@ class CategoryEvaluation(RESCALEvaluation):
                                     self.java, self.python,
                                     self.allneeds)]
 
-    def run(self):
-        os.system("" + self.python + "evaluate_link_prediction.py " + self.getParams())
 
 
