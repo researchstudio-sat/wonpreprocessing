@@ -93,6 +93,7 @@ class BaseEvaluation(CreateTensor):
     fbeta = luigi.FloatParameter(default=0.5)
     numneeds = luigi.IntParameter(default=10000)
     statistics = luigi.BooleanParameter(default=False)
+    maxhubsize = luigi.IntParameter(default=10000)
 
     def requires(self):
         return [CreateTensor(self.gatehome, self.jarfile,
@@ -113,6 +114,7 @@ class BaseEvaluation(CreateTensor):
         params += " -maxconnections " + str(self.maxconnections)
         params += " -fbeta " + str(self.fbeta)
         params += " -numneeds " + str(self.numneeds)
+        params += " -maxhubsize " + str(self.maxhubsize)
         if (self.maskrandom):
             params += " -maskrandom "
         if (self.statistics):

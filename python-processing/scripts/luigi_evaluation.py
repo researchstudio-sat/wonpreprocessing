@@ -34,8 +34,21 @@ def base_config():
 def default_all_eval():
     params = ['AllEvaluation'] + base_config() + RESCAL_DEFAULT_PARAMS + RESCAL2_DEFAULT_PARAMS + \
              COSINE_DEFAULT_PARAMS + ['--outputfolder', output_folder_config() + '/results/default'] + \
-             ['--tensorfolder', output_folder_config() + '/tensor']
+             ['--tensorfolder', output_folder_config() + '/tensor', '--statistics']
     luigi.run(params)
+
+# evaluate the effect of masking all hub needs (needs that have more than a number of X connections)
+def nohubneeds_eval():
+    params = ['AllEvaluation'] + base_config() + ['--outputfolder', output_folder_config() + '/results/nohubneeds'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor']
+    luigi.run(params + ['--maxhubsize', '10'] + RESCAL_DEFAULT_PARAMS + RESCAL2_DEFAULT_PARAMS + COSINE_DEFAULT_PARAMS)
+    luigi.run(params + ['--maxhubsize', '10'] + ['--rank',  '500', '--threshold', '0.03'] +
+              ['--rank2',  '500', '--threshold2', '0.05'] + ['--costhreshold', '0.4', '--costransthreshold', '0.0',
+                                                             '--wcosthreshold', '0.4', '--wcostransthreshold', '0.0'])
+    luigi.run(params + ['--maxhubsize', '50'] + RESCAL_DEFAULT_PARAMS + RESCAL2_DEFAULT_PARAMS + COSINE_DEFAULT_PARAMS)
+    luigi.run(params + ['--maxhubsize', '50'] + ['--rank',  '500', '--threshold', '0.03'] +
+              ['--rank2',  '500', '--threshold2', '0.05'] + ['--costhreshold', '0.4', '--costransthreshold', '0.0',
+                                                             '--wcosthreshold', '0.4', '--wcostransthreshold', '0.0'])
 
 # evaluate the influence of the rank on the quality and performance of link prediction
 def rank_eval():
@@ -200,6 +213,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+
+    params = ['AllEvaluation'] + base_config() + RESCAL_DEFAULT_PARAMS + RESCAL2_DEFAULT_PARAMS + \
+             COSINE_DEFAULT_PARAMS + ['--outputfolder', output_folder_config() + '/results/default'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor', '--statistics']
+
+    luigi.run(params)
+
     # run the experiments
     default_all_eval()
     no_stopwords()
@@ -207,6 +227,7 @@ if __name__ == '__main__':
     stemming_eval()
     needtype_slice_eval()
     maskrandom_eval()
+    nohubneeds_eval()
     content_slice_eval()
     cosinetrans_eval()
     intersection_eval()

@@ -16,6 +16,8 @@ import numpy as np
 from scipy.sparse import csr_matrix, lil_matrix
 import sklearn.metrics as m
 from time import strftime
+from tools.graph_utils import create_gexf_graph
+from tools.evaluation_utils import NeedEvaluationDetailDict, NeedEvaluationDetails
 from tools.cosine_link_prediction import cosinus_link_prediciton
 from tools.tensor_utils import connection_indices, read_input_tensor, \
     predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking, \
@@ -69,18 +71,31 @@ def mask_all_but_X_connections_per_need(tensor, keep_x):
     masked_tensor.addSliceMatrix(conSlice, SparseTensor.CONNECTION_SLICE)
     return masked_tensor
 
-# choose number of x needs to keep and remove all other needs (including references to attributes, connections, etc)
-# that exceed this number
+# choose number of x needs to keep and remove all other needs that exceed this number
 def keep_x_random_needs(tensor, keep_x):
     rand_needs = tensor.getNeedIndices()
     np.random.shuffle(rand_needs)
     remove_needs = rand_needs[keep_x:]
-    slices = [lil_matrix(slice.copy()) for slice in tensor.getSliceMatrixList()]
+    return mask_needs(tensor, remove_needs)
+
+# mask all needs with have more than X connections
+def mask_needs_with_more_than_X_connections(tensor, x_connections):
+    remove_needs = []
+    for need in range(tensor.shape[0]):
+        if (tensor.getSliceMatrix(SparseTensor.CONNECTION_SLICE)[need,].sum() > x_connections):
+            remove_needs.append(need)
+    return mask_needs(tensor, remove_needs)
+
+# mask complete needs (including references to attributes, connections, etc)
+def mask_needs(tensor, needs):
+    if (len(needs) == 0):
+        return tensor
+    slices = [lil_matrix(slice) for slice in tensor.getSliceMatrixList()]
     idx = 0
-    newHeaders = ["NULL" if i in remove_needs else tensor.getHeaders()[i] for i in range(len(tensor.getHeaders()))]
+    newHeaders = ["NULL" if i in needs else tensor.getHeaders()[i] for i in range(len(tensor.getHeaders()))]
     masked_tensor = SparseTensor(newHeaders)
     for slice in slices:
-        for need in remove_needs:
+        for need in needs:
             slice[need,:] = lil_matrix(np.zeros(slice.shape[0]))
             slice[:,need] = lil_matrix(np.zeros(slice.shape[0])).transpose()
         masked_tensor.addSliceMatrix(slice, idx)
@@ -161,19 +176,6 @@ def write_ROC_curve_file(folder, outfilename, TP, FP, threshold):
             prevline = line
     file.close()
 
-# classify based on 2 values as true positive (TP), true negative (TN), false positive (FP), false negative (FN)
-def test_classification(y_true, y_pred):
-    if y_true == y_pred:
-        if y_true == 1.0:
-            return "TP"
-        else:
-            return "TN"
-    else:
-        if y_true == 1.0:
-            return "FN"
-        else:
-            return "FP"
-
 # helper function
 def create_file_from_sorted_list(dir, filename, list):
     if not os.path.exists(dir):
@@ -184,68 +186,36 @@ def create_file_from_sorted_list(dir, filename, list):
         file.write(entry + "\n")
     file.close()
 
-# calculate precision
-def calc_precision(TP, FP):
-    return TP / float(TP + FP) if (TP + FP) > 0 else 1.0
-
-# calculate recall
-def calc_recall(TP, FN):
-    return TP / float(TP + FN) if (TP + FN) > 0 else 1.0
-
-# calculate accuracy
-def calc_accuracy(TP, TN, FP, FN):
-    return (TP + TN) / float(TP + TN + FP + FN) if (TP + TN + FP + FN) > 0 else 1.0
 
 # in a specified folder create files which represent tested needs. For each of these files print the
 # binary classifiers: TP, FP, FN including the (connected/not connected) need names for manual detailed analysis of
 # the classification algorithm.
-def output_statistic_details(outputpath, headers, con_slice_true, con_slice_pred, idx_test):
-    TP, TN, FP, FN = 0,0,0,0
-    need_list = []
-    sorted_idx = np.argsort(idx_test[0])
-    i1 = [idx_test[0][i] for i in sorted_idx]
-    i2 = [idx_test[1][i] for i in sorted_idx]
-    idx_test = (i1, i2)
-    need_from = idx_test[0][0]
-    need_to = idx_test[1][0]
+def output_statistic_details(outputpath, headers, needEvaluationDetailDict):
+
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)
     summary_file = codecs.open(outputpath + "/_summary.txt",'a+',encoding='utf8')
-    class_label = test_classification(con_slice_true[need_from, need_to], con_slice_pred[need_from, need_to])
-    need_list.append(class_label + ": " + headers[need_to])
-    for i in range(1,len(idx_test[0])):
-        need_from_prev = idx_test[0][i-1]
-        need_from = idx_test[0][i]
-        need_to = idx_test[1][i]
-        if need_from_prev != need_from:
-            create_file_from_sorted_list(outputpath, headers[need_from_prev][6:] + ".txt", need_list)
-            summary_file.write(headers[need_from_prev][6:])
-            summary_file.write(": TP: " + str(TP))
-            summary_file.write(": TN: " + str(TN))
-            summary_file.write(": FP: " + str(FP))
-            summary_file.write(": FN: " + str(FN))
-            summary_file.write(": Precision: " + str(calc_precision(TP, FP)))
-            summary_file.write(": Recall: " + str(calc_recall(TP, FN)))
-            summary_file.write(": Accuracy: " + str(calc_accuracy(TP, TN, FP, FN)) + "\n")
-            need_list = []
-            TP, TN, FP, FN = 0,0,0,0
-        class_label = test_classification(con_slice_true[need_from, need_to], con_slice_pred[need_from, need_to])
-        TP += (1 if class_label == "TP" else 0)
-        TN += (1 if class_label == "TN" else 0)
-        FP += (1 if class_label == "FP" else 0)
-        FN += (1 if class_label == "FN" else 0)
-        if class_label != "TN":
-            need_list.append(class_label + ": " + headers[need_to])
-    create_file_from_sorted_list(outputpath, headers[need_from_prev][6:] + ".txt", need_list)
-    summary_file.write(headers[need_from_prev][6:])
-    summary_file.write(": TP: " + str(TP))
-    summary_file.write(": TN: " + str(TN))
-    summary_file.write(": FP: " + str(FP))
-    summary_file.write(": FN: " + str(FN))
-    summary_file.write(": Precision: " + str(calc_precision(TP, FP)))
-    summary_file.write(": Recall: " + str(calc_recall(TP, FN)))
-    summary_file.write(": Accuracy: " + str(calc_accuracy(TP, TN, FP, FN)) + "\n")
+
+    for need in needEvaluationDetailDict.dict.keys():
+        # write need details file
+        needEval = needEvaluationDetailDict.dict[need]
+        needDetails = [ "TP: " + headers[toNeed][6:] for toNeed in needEval.TP_toNeeds]
+        needDetails += [ "FN: " + headers[toNeed][6:] for toNeed in needEval.FN_toNeeds]
+        needDetails += [ "FP: " + headers[toNeed][6:] for toNeed in needEval.FP_toNeeds]
+        create_file_from_sorted_list(outputpath, headers[need][6:] + ".txt", needDetails)
+
+        # write the summary file
+        summary_file.write(headers[need][6:])
+        summary_file.write(": TP: " + str(needEvaluationDetailDict.dict[need].TP))
+        summary_file.write(": TN: " + str(needEvaluationDetailDict.dict[need].TN))
+        summary_file.write(": FP: " + str(needEvaluationDetailDict.dict[need].FP))
+        summary_file.write(": FN: " + str(needEvaluationDetailDict.dict[need].FN))
+        summary_file.write(": Precision: " + str(needEvaluationDetailDict.dict[need].getPrecision()))
+        summary_file.write(": Recall: " + str(needEvaluationDetailDict.dict[need].getRecall()))
+        summary_file.write(": f%f-score : " % F_BETA + str(needEvaluationDetailDict.dict[need].getFScore(F_BETA)))
+        summary_file.write(": Accuracy: " + str(needEvaluationDetailDict.dict[need].getAccuracy()) + "\n")
     summary_file.close()
+
 
 # calculate the optimal threshold by maximizing the f-score measure
 def get_optimal_threshold(recall, precision, threshold, f_beta=1.0):
@@ -345,6 +315,8 @@ if __name__ == '__main__':
                         type=int, help="number of needs used for the evaluation")
     parser.add_argument('-statistics', action="store_true", dest="statistics",
                         help="write detailed statistics for the evaluation")
+    parser.add_argument('-maxhubsize', action="store", dest="maxhubsize", default=10000,
+                        type=int, help="use only needs for the evaluation that do not exceed a number X of connections")
 
     # algorithm parameters
     parser.add_argument('-rescal', action="store", dest="rescal", nargs=3,
@@ -438,34 +410,30 @@ if __name__ == '__main__':
     if (args.numneeds < len(input_tensor.getNeedIndices())):
         input_tensor = keep_x_random_needs(input_tensor, args.numneeds)
 
+    input_tensor = mask_needs_with_more_than_X_connections(input_tensor, args.maxhubsize)
+    _log.info('Use only needs that do not have more than %d connections' % args.maxhubsize)
+
     GROUND_TRUTH = input_tensor.copy()
     needs = input_tensor.getNeedIndices()
     np.random.shuffle(needs)
     connections = need_connection_indices(input_tensor.getNeedIndices(), needs)
 
     if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-        _log.info('For testing mask all connections of random test needs (Test Case: Predict connections for new need '
+        _log.info('Mask all connections of random test needs (Test Case: Predict connections for new need '
                   'without connections)')
     else:
-        _log.info('For testing mask random connections (Test Case: Predict connections for existing need which may '
+        _log.info('Mask random connections (Test Case: Predict connections for existing need which may '
                   'already have connections)')
 
-    _log.info('For testing use a maximum number of %d connections per need' % MAX_CONNECTIONS_PER_NEED)
+    _log.info('Use a maximum number of %d connections per need' % MAX_CONNECTIONS_PER_NEED)
     input_tensor = mask_all_but_X_connections_per_need(input_tensor, MAX_CONNECTIONS_PER_NEED)
     offers = input_tensor.getOfferIndices()
     wants = input_tensor.getWantIndices()
     need_fold_size = int(len(needs) / FOLDS)
     connection_fold_size = int(len(connections[0]) / FOLDS)
     AUC_test = np.zeros(FOLDS)
-    report1 = EvaluationReport(F_BETA)
-    report2 = EvaluationReport(F_BETA)
-    report3 = EvaluationReport(F_BETA)
-    report4 = EvaluationReport(F_BETA)
-    report5 = EvaluationReport(F_BETA)
-    report6 = EvaluationReport(F_BETA)
-    report7 = EvaluationReport(F_BETA)
-    report8 = EvaluationReport(F_BETA)
-    report9 = EvaluationReport(F_BETA)
+    report = [EvaluationReport(F_BETA)] * 9
+    evalDetails = [NeedEvaluationDetailDict()] * 4
 
     _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
@@ -525,15 +493,14 @@ if __name__ == '__main__':
             _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
             P_bin = predict_rescal_connections_by_threshold(A, R, RESCAL_THRESHOLD, offers, wants, test_needs)
             binary_pred = matrix_to_array(P_bin, idx_test)
-            report1.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), binary_pred)
+            report[0].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), binary_pred)
             if args.statistics:
                 write_precision_recall_curve_file(outfolder + "/statistics/rescal_" + start_time,
                                                   "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
                 TP, FP, threshold = m.roc_curve(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), prediction)
                 write_ROC_curve_file(outfolder + "/statistics/rescal_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
-                if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-                    output_statistic_details(outfolder + "/statistics/rescal_" + start_time, test_tensor.getHeaders(),
-                                             GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), P_bin, idx_test)
+                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), P_bin, idx_test)
 
         if args.rescalsim:
             # execute the rescal algorithm
@@ -545,7 +512,8 @@ if __name__ == '__main__':
             _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
             P_bin = predict_rescal_connections_by_need_similarity(A, RESCAL_SIMILARITY_THRESHOLD, offers, wants, test_needs)
             binary_pred = matrix_to_array(P_bin, idx_test)
-            report2.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), binary_pred)
+            report[1].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), binary_pred)
 
             if args.statistics:
                 S = similarity_ranking(A)
@@ -554,9 +522,7 @@ if __name__ == '__main__':
                 write_precision_recall_curve_file(outfolder + "/statistics/rescal_similarity_" + start_time, "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
                 TP, FP, threshold = m.roc_curve(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), y_prop)
                 write_ROC_curve_file(outfolder + "/statistics/rescal_similarity_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
-                if MASK_ALL_CONNECTIONS_OF_TEST_NEED:
-                    output_statistic_details(outfolder + "/statistics/rescal_similarity_" + start_time, test_tensor.getHeaders(),
-                                             GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), P_bin, idx_test)
+                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), P_bin, idx_test)
 
         if args.cosine:
             # execute the cosine similarity link prediction algorithm
@@ -564,11 +530,10 @@ if __name__ == '__main__':
                       ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
             binary_pred = cosinus_link_prediciton(test_tensor, test_needs, COSINE_SIMILARITY_THRESHOLD,
                                                   COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
-            report3.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), binary_pred[idx_test])
-            if MASK_ALL_CONNECTIONS_OF_TEST_NEED and args.statistics:
-                output_statistic_details(outfolder + "/statistics/cosine_" + start_time, test_tensor.getHeaders(),
-                                         GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE),
-                                         binary_pred, idx_test)
+            report[2].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), binary_pred[idx_test])
+            if args.statistics:
+                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), binary_pred, idx_test)
 
         if args.cosine_weigthed:
             # execute the weighted cosine similarity link prediction algorithm
@@ -576,10 +541,10 @@ if __name__ == '__main__':
                       (COSINE_WEIGHTED_SIMILARITY_THRESHOLD, COSINE_WEIGHTED_SIMILARITY_TRANSITIVE_THRESHOLD))
             binary_pred = cosinus_link_prediciton(test_tensor, test_needs, COSINE_WEIGHTED_SIMILARITY_THRESHOLD,
                                                   COSINE_WEIGHTED_SIMILARITY_TRANSITIVE_THRESHOLD, True)
-            report4.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), binary_pred[idx_test])
-            if MASK_ALL_CONNECTIONS_OF_TEST_NEED and args.statistics:
-                output_statistic_details(outfolder + "/statistics/weighted_cosine_" + start_time, test_tensor.getHeaders(),
-                                         GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), binary_pred, idx_test)
+            report[3].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), binary_pred[idx_test])
+            if args.statistics:
+                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), binary_pred, idx_test)
 
         if args.cosine_rescal:
             cosine_pred, rescal_pred = predict_combine_cosine_rescal(test_tensor, test_needs, idx_test,
@@ -588,24 +553,29 @@ if __name__ == '__main__':
                                                                      float(args.cosine_rescal[2]),
                                                                      bool(args.cosine_rescal[3]))
             _log.info('First step for prediction of cosine similarity with threshold: %f:' % float(args.cosine_rescal[2]))
-            report5.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), cosine_pred)
+            report[4].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), cosine_pred)
             _log.info('And second step for combined RESCAL prediction with parameters: %d, %f:'
                       % (int(args.cosine_rescal[0]), float(args.cosine_rescal[1])))
-            report6.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), rescal_pred)
+            report[5].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), rescal_pred)
 
         if args.intersection:
             inter_pred, cosine_pred, rescal_pred = predict_intersect_cosine_rescal(test_tensor, test_needs, idx_test,
                                                                                    int(args.intersection[0]), float(args.intersection[1]),
                                                                                    float(args.intersection[2]), bool(args.intersection[3]))
             _log.info('Intersection of predictions of cosine similarity and rescal algorithms: ')
-            report9.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), inter_pred)
+            report[8].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                              idx_test), inter_pred)
 
             _log.info('For RESCAL prediction with threshold %f:' % float(args.intersection[1]))
-            report8.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), rescal_pred)
+            report[7].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                             idx_test), rescal_pred)
 
             _log.info('For prediction of cosine similarity between needs with thresholds: %f:' %
                       float(args.intersection[2]))
-            report7.add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), cosine_pred)
+            report[6].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                             idx_test), cosine_pred)
 
         # end of fold loop
 
@@ -614,34 +584,61 @@ if __name__ == '__main__':
         _log.info('AUC-PR Test Mean / Std: %f / %f' % (AUC_test.mean(), AUC_test.std()))
         _log.info('----------------------------------------------------')
         _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
-        report1.summary()
+        report[0].summary()
+        if args.statistics:
+            output_statistic_details(outfolder + "/statistics/rescal_" + start_time, GROUND_TRUTH.getHeaders(), evalDetails[0])
+            gexf = create_gexf_graph(input_tensor, evalDetails[0])
+            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
         _log.info('----------------------------------------------------')
     if args.rescalsim:
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
-        report2.summary()
+        report[1].summary()
+        if args.statistics:
+            output_statistic_details(outfolder + "/statistics/rescalsim_" + start_time, GROUND_TRUTH.getHeaders(),
+                                     evalDetails[1])
+            gexf = create_gexf_graph(input_tensor, evalDetails[1])
+            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
         _log.info('----------------------------------------------------')
     if args.cosine:
         _log.info('For prediction of cosine similarity between needs with thresholds: %f, %f'
                   ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
-        report3.summary()
+        report[2].summary()
+        if args.statistics:
+            output_statistic_details(outfolder + "/statistics/cosine_" + start_time, GROUND_TRUTH.getHeaders(),
+                                     evalDetails[2])
+            gexf = create_gexf_graph(input_tensor, evalDetails[2])
+            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
         _log.info('----------------------------------------------------')
     if args.cosine_weigthed:
         _log.info('For prediction of weighted cosine similarity between needs with thresholds: %f, %f'
                   ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
-        report4.summary()
+        report[3].summary()
+        if args.statistics:
+            output_statistic_details(outfolder + "/statistics/wcosine_" + start_time, GROUND_TRUTH.getHeaders(),
+                                     evalDetails[3])
+            gexf = create_gexf_graph(input_tensor, evalDetails[3])
+            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
     if args.cosine_rescal:
         _log.info('First step for prediction of cosine similarity with threshold: %f:' % float(args.cosine_rescal[2]))
-        report5.summary()
+        report[4].summary()
         _log.info('And second step for combined RESCAL prediction with threshold: %f:' % float(args.cosine_rescal[1]))
-        report6.summary()
+        report[5].summary()
     if args.intersection:
         _log.info('Intersection of predictions of cosine similarity and rescal algorithms: ')
-        report9.summary()
+        report[8].summary()
         _log.info('For RESCAL prediction with threshold %f:' % float(args.intersection[1]))
-        report8.summary()
+        report[7].summary()
         _log.info('For prediction of cosine similarity between needs with thresholds: %f:' %
                   float(args.intersection[2]))
-        report7.summary()
+        report[6].summary()
 
 
 
