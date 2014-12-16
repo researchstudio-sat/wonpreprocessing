@@ -432,8 +432,8 @@ if __name__ == '__main__':
     need_fold_size = int(len(needs) / FOLDS)
     connection_fold_size = int(len(connections[0]) / FOLDS)
     AUC_test = np.zeros(FOLDS)
-    report = [EvaluationReport(F_BETA)] * 9
-    evalDetails = [NeedEvaluationDetailDict()] * 4
+    report = [EvaluationReport(F_BETA) for _ in range(9)]
+    evalDetails = [NeedEvaluationDetailDict() for _ in range(4)]
 
     _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
               (len(needs), len(set(needs) & set(offers)), len(set(needs) & set(wants))))
@@ -519,10 +519,11 @@ if __name__ == '__main__':
                 S = similarity_ranking(A)
                 y_prop = [1.0 - i for i in np.nan_to_num(S[idx_test])]
                 precision, recall, threshold = m.precision_recall_curve(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), y_prop)
-                write_precision_recall_curve_file(outfolder + "/statistics/rescal_similarity_" + start_time, "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
+                write_precision_recall_curve_file(outfolder + "/statistics/rescalsim_" + start_time, "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
                 TP, FP, threshold = m.roc_curve(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), y_prop)
-                write_ROC_curve_file(outfolder + "/statistics/rescal_similarity_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
-                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), P_bin, idx_test)
+                write_ROC_curve_file(outfolder + "/statistics/rescalsim_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
+                evalDetails[1].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE),
+                                                     P_bin, idx_test)
 
         if args.cosine:
             # execute the cosine similarity link prediction algorithm
@@ -530,10 +531,11 @@ if __name__ == '__main__':
                       ':' % (COSINE_SIMILARITY_THRESHOLD, COSINE_SIMILARITY_TRANSITIVE_THRESHOLD))
             binary_pred = cosinus_link_prediciton(test_tensor, test_needs, COSINE_SIMILARITY_THRESHOLD,
                                                   COSINE_SIMILARITY_TRANSITIVE_THRESHOLD, False)
-            report[2].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
-                                                                              idx_test), binary_pred[idx_test])
+            report[2].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,idx_test),
+                                          matrix_to_array(binary_pred, idx_test))
             if args.statistics:
-                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), binary_pred, idx_test)
+                evalDetails[2].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE),
+                                                     binary_pred, idx_test)
 
         if args.cosine_weigthed:
             # execute the weighted cosine similarity link prediction algorithm
@@ -541,10 +543,11 @@ if __name__ == '__main__':
                       (COSINE_WEIGHTED_SIMILARITY_THRESHOLD, COSINE_WEIGHTED_SIMILARITY_TRANSITIVE_THRESHOLD))
             binary_pred = cosinus_link_prediciton(test_tensor, test_needs, COSINE_WEIGHTED_SIMILARITY_THRESHOLD,
                                                   COSINE_WEIGHTED_SIMILARITY_TRANSITIVE_THRESHOLD, True)
-            report[3].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
-                                                                              idx_test), binary_pred[idx_test])
+            report[3].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test),
+                                          matrix_to_array(binary_pred, idx_test))
             if args.statistics:
-                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), binary_pred, idx_test)
+                evalDetails[3].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE),
+                                                     binary_pred, idx_test)
 
         if args.cosine_rescal:
             cosine_pred, rescal_pred = predict_combine_cosine_rescal(test_tensor, test_needs, idx_test,
@@ -599,7 +602,7 @@ if __name__ == '__main__':
             output_statistic_details(outfolder + "/statistics/rescalsim_" + start_time, GROUND_TRUTH.getHeaders(),
                                      evalDetails[1])
             gexf = create_gexf_graph(input_tensor, evalDetails[1])
-            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            output_file = open(outfolder + "/statistics/rescalsim_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
         _log.info('----------------------------------------------------')
@@ -611,7 +614,7 @@ if __name__ == '__main__':
             output_statistic_details(outfolder + "/statistics/cosine_" + start_time, GROUND_TRUTH.getHeaders(),
                                      evalDetails[2])
             gexf = create_gexf_graph(input_tensor, evalDetails[2])
-            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            output_file = open(outfolder + "/statistics/cosine_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
         _log.info('----------------------------------------------------')
@@ -623,7 +626,7 @@ if __name__ == '__main__':
             output_statistic_details(outfolder + "/statistics/wcosine_" + start_time, GROUND_TRUTH.getHeaders(),
                                      evalDetails[3])
             gexf = create_gexf_graph(input_tensor, evalDetails[3])
-            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
+            output_file = open(outfolder + "/statistics/wcosine_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
     if args.cosine_rescal:

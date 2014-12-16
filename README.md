@@ -9,6 +9,8 @@ Needs are created from WANT and OFFER mails and connections between them can be 
 
 Afterwards a 3-way-tensor object is created as input to evaluate different algorithms (e.g. RESCAL)
 in python ('evaluate_link_prediction.py') that can be used to predict further connections between needs.
+Also detailed statistics about the matching of every single need can be written including a gexf graph which can be
+visualized with Gephi (http://gephi.github.io/) for example.
 
 
 What to install:
@@ -28,13 +30,10 @@ How to run:
 * execute maven build (package) of this project to build the 'wonpreprocessing-1.0-SNAPSHOT-jar-with-dependencies.jar'
 * the whole process can be executed by starting the script 'luigi_evaluation.py' with its parameters
 * check the script for details
+* the output is found in log files in the test data evaluation folder together with detailed statistics and a gexf
+graph (Gephi)
 
 
-
-
-R:
-* After execution of "python-processing/src/main/python/generate_rescal_output.py" this output can be
-visualized/analyzed with R using "R-evaluation/Rgraphdraw.R" script
 
 FEATURE_EXTRACTION:
 * needs python (tested on 3.4), numpy, scipy, scikit-learn and nltk

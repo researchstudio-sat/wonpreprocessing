@@ -4,7 +4,7 @@ __author__ = 'bivanschitz'
 from math import log10
 
 from scipy.spatial.distance import cosine
-
+from scipy.sparse import csr_matrix
 from tools.tensor_utils import SparseTensor
 
 
@@ -106,4 +106,4 @@ def cosinus_link_prediciton(tensor, new_elements, threshold, transitive_threshol
         candidates = get_candidates(most_common_elements_weighted, threshold)
         newconnectionmat = add_transitv_connections(candidates, connectionmat, new_element, checkset, transitive_threshold)
 
-    return newconnectionmat
+    return csr_matrix(newconnectionmat)

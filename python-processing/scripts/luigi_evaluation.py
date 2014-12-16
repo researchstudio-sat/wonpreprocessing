@@ -213,22 +213,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-
-    params = ['AllEvaluation'] + base_config() + RESCAL_DEFAULT_PARAMS + RESCAL2_DEFAULT_PARAMS + \
-             COSINE_DEFAULT_PARAMS + ['--outputfolder', output_folder_config() + '/results/default'] + \
-             ['--tensorfolder', output_folder_config() + '/tensor', '--statistics']
-
-    luigi.run(params)
-
     # run the experiments
     default_all_eval()
-    no_stopwords()
     category_slice_eval()
+    nohubneeds_eval()
+    maskrandom_eval()
+    content_slice_eval()
+    no_stopwords()
     stemming_eval()
     needtype_slice_eval()
-    maskrandom_eval()
-    nohubneeds_eval()
-    content_slice_eval()
     cosinetrans_eval()
     intersection_eval()
     combine_eval()
@@ -236,6 +229,7 @@ if __name__ == '__main__':
     connection_rescalsim_eval()
     num_needs_eval()
     rank_eval()
+
 
 
 

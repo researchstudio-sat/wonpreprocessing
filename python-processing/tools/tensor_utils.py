@@ -52,7 +52,7 @@ class SparseTensor:
             return list(self.headers)
 
         def getArrayFromSliceMatrix(self, slice, indices):
-            return np.array(self.data[slice][indices])[0]
+            return matrix_to_array(self.data[slice], indices)
 
         # return a list of indices which refer to rows/columns of needs in the tensor
         def getNeedIndices(self):

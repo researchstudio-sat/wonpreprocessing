@@ -92,7 +92,7 @@ class BaseEvaluation(CreateTensor):
     maskrandom = luigi.BooleanParameter(default=False)
     fbeta = luigi.FloatParameter(default=0.5)
     numneeds = luigi.IntParameter(default=10000)
-    statistics = luigi.BooleanParameter(default=False)
+    statistics = luigi.BooleanParameter(default=True)
     maxhubsize = luigi.IntParameter(default=10000)
 
     def requires(self):

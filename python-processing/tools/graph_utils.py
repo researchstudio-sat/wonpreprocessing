@@ -73,7 +73,8 @@ def create_gexf_graph(tensor, needEvaluationDetailDict=None):
     # add the connections as edges between nodes (needs)
     nz = tensor.getSliceMatrix(SparseTensor.CONNECTION_SLICE).nonzero()
     for i in range(len(nz[0])):
-        graph.addEdge(str(nz[0][i]) + "_" + str(nz[1][i]), nz[0][i], nz[1][i])
+        if nz[0][i] < nz[1][i]:
+            graph.addEdge(str(nz[0][i]) + "_" + str(nz[1][i]), nz[0][i], nz[1][i])
 
     return gexf
 
