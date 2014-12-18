@@ -21,7 +21,7 @@ from tools.evaluation_utils import NeedEvaluationDetailDict, NeedEvaluationDetai
 from tools.cosine_link_prediction import cosinus_link_prediciton
 from tools.tensor_utils import connection_indices, read_input_tensor, \
     predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking, \
-    matrix_to_array, execute_rescal, predict_rescal_connections_array, SparseTensor
+    matrix_to_array, execute_rescal, predict_rescal_connections_array, SparseTensor, extend_next_hop_transitive_connections
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -190,7 +190,7 @@ def create_file_from_sorted_list(dir, filename, list):
 # in a specified folder create files which represent tested needs. For each of these files print the
 # binary classifiers: TP, FP, FN including the (connected/not connected) need names for manual detailed analysis of
 # the classification algorithm.
-def output_statistic_details(outputpath, headers, needEvaluationDetailDict):
+def output_statistic_details(outputpath, headers, needEvaluationDetailDict, printThresholds=False):
 
     if not os.path.exists(outputpath):
         os.makedirs(outputpath)
@@ -199,9 +199,18 @@ def output_statistic_details(outputpath, headers, needEvaluationDetailDict):
     for need in needEvaluationDetailDict.dict.keys():
         # write need details file
         needEval = needEvaluationDetailDict.dict[need]
-        needDetails = [ "TP: " + headers[toNeed][6:] for toNeed in needEval.TP_toNeeds]
-        needDetails += [ "FN: " + headers[toNeed][6:] for toNeed in needEval.FN_toNeeds]
-        needDetails += [ "FP: " + headers[toNeed][6:] for toNeed in needEval.FP_toNeeds]
+        if printThresholds:
+            needDetails = [ "TP (%f): " % needEval.TP_thresholds[i] + headers[needEval.TP_toNeeds[i]][6:]
+                            for i in range(len(needEval.TP_toNeeds))]
+            needDetails += [ "FN (%f): " % needEval.FN_thresholds[i] + headers[needEval.FN_toNeeds[i]][6:]
+                             for i in range(len(needEval.FN_toNeeds))]
+            needDetails += [ "FP (%f): " % needEval.FP_thresholds[i] + headers[needEval.FP_toNeeds[i]][6:]
+                             for i in range(len(needEval.FP_toNeeds))]
+        else:
+            needDetails = [ "TP: " + headers[toNeed][6:] for toNeed in needEval.TP_toNeeds]
+            needDetails += [ "FN: " + headers[toNeed][6:] for toNeed in needEval.FN_toNeeds]
+            needDetails += [ "FP: " + headers[toNeed][6:] for toNeed in needEval.FP_toNeeds]
+
         create_file_from_sorted_list(outputpath, headers[need][6:] + ".txt", needDetails)
 
         # write the summary file
@@ -319,8 +328,8 @@ if __name__ == '__main__':
                         type=int, help="use only needs for the evaluation that do not exceed a number X of connections")
 
     # algorithm parameters
-    parser.add_argument('-rescal', action="store", dest="rescal", nargs=3,
-                        metavar=('rank', 'threshold', 'useNeedTypeSlice'),
+    parser.add_argument('-rescal', action="store", dest="rescal", nargs=4,
+                        metavar=('rank', 'threshold', 'useNeedTypeSlice', 'transitiveConnections'),
                         help="evaluate RESCAL algorithm")
     parser.add_argument('-rescalsim', action="store", dest="rescalsim", nargs=4,
                         metavar=('rank', 'threshold', 'useNeedTypeSlice', 'useConnectionSlice'),
@@ -472,6 +481,12 @@ if __name__ == '__main__':
 
         # evaluate the algorithms
         if args.rescal:
+
+            # set transitive connections before execution
+            if (args.rescal[3] == 'True'):
+                _log.info('extend connections transitively to the next need for RESCAL learning')
+                test_tensor = extend_next_hop_transitive_connections(test_tensor)
+
             # execute the rescal algorithm
             useNeedTypeSlice = (args.rescal[2] == 'True')
             A, R = execute_rescal(test_tensor, RESCAL_RANK, useNeedTypeSlice)
@@ -500,7 +515,8 @@ if __name__ == '__main__':
                                                   "precision_recall_curve_fold%d.csv" % f, precision, recall, threshold)
                 TP, FP, threshold = m.roc_curve(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test), prediction)
                 write_ROC_curve_file(outfolder + "/statistics/rescal_" + start_time, "ROC_curve_fold%d.csv" % f, TP, FP, threshold)
-                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE), P_bin, idx_test)
+                evalDetails[0].add_statistic_details(GROUND_TRUTH.getSliceMatrix(SparseTensor.CONNECTION_SLICE),
+                                                     P_bin, idx_test, prediction)
 
         if args.rescalsim:
             # execute the rescal algorithm
@@ -589,7 +605,8 @@ if __name__ == '__main__':
         _log.info('For RESCAL prediction with threshold %f:' % RESCAL_THRESHOLD)
         report[0].summary()
         if args.statistics:
-            output_statistic_details(outfolder + "/statistics/rescal_" + start_time, GROUND_TRUTH.getHeaders(), evalDetails[0])
+            output_statistic_details(outfolder + "/statistics/rescal_" + start_time, GROUND_TRUTH.getHeaders(),
+                                     evalDetails[0], True)
             gexf = create_gexf_graph(input_tensor, evalDetails[0])
             output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)

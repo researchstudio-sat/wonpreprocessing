@@ -20,7 +20,8 @@ def create_gexf_graph(tensor, needEvaluationDetailDict=None):
     date_time = strftime("%Y-%m-%d_%H%M%S")
 
     gexf = Gexf(os.path.basename(__file__), date_time)
-    graph = gexf.addGraph('undirected','static','generated need graph')
+    graph = gexf.addGraph('undirected','static','generated need graph with input connections')
+
     need_type_attr = graph.addNodeAttribute("need type", "undefined", "string")
     subject_attr = graph.addNodeAttribute("subject attributes", "", "string")
     content_attr = graph.addNodeAttribute("content attributes", "", "string")
@@ -70,11 +71,13 @@ def create_gexf_graph(tensor, needEvaluationDetailDict=None):
             node.addAttribute(f0_5score_attr, str(needDetail.getFScore(0.5)))
             node.addAttribute(f1score_attr, str(needDetail.getFScore(1)))
 
-    # add the connections as edges between nodes (needs)
+    # add the connections as edges between nodes (needs) from the input tensor
     nz = tensor.getSliceMatrix(SparseTensor.CONNECTION_SLICE).nonzero()
     for i in range(len(nz[0])):
         if nz[0][i] < nz[1][i]:
             graph.addEdge(str(nz[0][i]) + "_" + str(nz[1][i]), nz[0][i], nz[1][i])
 
     return gexf
+
+
 

@@ -211,7 +211,8 @@ def predict_rescal_connections_array(A, R, indices):
 
 # return the rescal predictions of the connection slice at the specified indices as an numpy array
 def predict_rescal_connections_array(A, R, indices):
-    # result = [np.dot(A[indices[0][i],:], np.dot(R[CONNECTION_SLICE], A[indices[1][i],:])) for i in range(len(indices[0]))]
+    # result = [np.dot(A[indices[0][i],:], np.dot(R[SparseTensor.CONNECTION_SLICE], A[indices[1][i],:]))
+    #           for i in range(len(indices[0]))]
     # due to performance reasons choose this implementation, not the above one
     sorted_idx = np.argsort(indices[0])
     from_needs = [indices[0][i] for i in sorted_idx]
@@ -259,3 +260,13 @@ def predict_rescal_connections_by_need_similarity(A, threshold, all_offers, all_
             if S[need,x] < threshold:
                 binary_prediction[need, x] = 1
     return csr_matrix(binary_prediction)
+
+# extend the connection slice with transitive connections to the next hop to connected not only OFFERS and WANTS but
+# also needs of the same type
+def extend_next_hop_transitive_connections(tensor):
+    con = tensor.getSliceMatrix(SparseTensor.CONNECTION_SLICE)
+    con = con + con * con
+    con.data = np.array([1.] * len(con.data))
+    newTensor = tensor.copy()
+    newTensor.addSliceMatrix(con, SparseTensor.CONNECTION_SLICE)
+    return newTensor

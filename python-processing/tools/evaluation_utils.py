@@ -18,25 +18,34 @@ class NeedEvaluationDetails:
         self.TP_toNeeds = []
         self.FN_toNeeds = []
         self.FP_toNeeds = []
+        self.TP_thresholds = []
+        self.FN_thresholds = []
+        self.FP_thresholds = []
 
-    def addClassificationData(self, y_true, y_pred, toNeeds=None):
+    def addClassificationData(self, y_true, y_pred, toNeeds=None, thresholds=None):
         for i in range(len(y_true)):
             if y_true[i] == y_pred[i]:
                 if y_true[i] == 1.0:
                     self.TP += 1
-                    if toNeeds:
+                    if toNeeds != None:
                         self.TP_toNeeds.append(toNeeds[i])
+                        if thresholds != None:
+                            self.TP_thresholds.append(thresholds[i])
                 else:
                     self.TN += 1
             else:
                 if y_true[i] == 1.0:
                     self.FN += 1
-                    if toNeeds:
+                    if toNeeds != None:
                         self.FN_toNeeds.append(toNeeds[i])
+                        if thresholds != None:
+                            self.FN_thresholds.append(thresholds[i])
                 else:
                     self.FP += 1
-                    if toNeeds:
+                    if toNeeds != None:
                         self.FP_toNeeds.append(toNeeds[i])
+                        if thresholds != None:
+                            self.FP_thresholds.append(thresholds[i])
 
     def getPrecision(self):
         sum = self.TP + self.FP
@@ -69,10 +78,11 @@ class NeedEvaluationDetailDict:
             self.dict[need] = NeedEvaluationDetails(need)
         return self.dict[need]
 
-    def add_statistic_details(self, con_slice_true, con_slice_pred, idx_test):
+    def add_statistic_details(self, con_slice_true, con_slice_pred, idx_test, thresholds=None):
         sorted_idx = np.argsort(idx_test[0])
         i1 = [idx_test[0][i] for i in sorted_idx]
         i2 = [idx_test[1][i] for i in sorted_idx]
+        sorted_thresholds = [thresholds[i] for i in sorted_idx]
         idx_test = (i1, i2)
 
         from_idx = 0
@@ -82,6 +92,7 @@ class NeedEvaluationDetailDict:
             needDetails = self.retrieveNeedDetails(need_from)
             idx_temp = (idx_test[0][from_idx:to_idx], idx_test[1][from_idx:to_idx])
             needDetails.addClassificationData(matrix_to_array(con_slice_true, idx_temp),
-                                              matrix_to_array(con_slice_pred, idx_temp), idx_temp[1])
+                                              matrix_to_array(con_slice_pred, idx_temp), idx_temp[1],
+                                              sorted_thresholds[from_idx:to_idx])
             from_idx = to_idx
 
