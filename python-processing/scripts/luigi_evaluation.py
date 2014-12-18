@@ -126,6 +126,13 @@ def maskrandom_eval():
     luigi.run(params + ['--rank',  '500', '--threshold', '0.2'])
     luigi.run(params + ['--rank',  '500', '--threshold', '0.3'])
 
+# evaluate the effect of adding transitive connections to needs only one edge away (connects needs of the same type)
+def transitive_eval():
+    params = ['RESCALEvaluation'] + base_config() + ['--outputfolder', output_folder_config() + '/results/transitive'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor', ]  + ['--transitive'] + ['--maxhubsize', '10']
+    luigi.run(params + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.03'])
+
 # evaluate the influence of the number of input connections (chosen randomly) to learn from on the RESCAL algorithm
 def connection_rescalsim_eval():
     connection_count = [0, 1, 2, 5, 10]
@@ -213,15 +220,19 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+
+
+
     # run the experiments
     default_all_eval()
     category_slice_eval()
+    transitive_eval()
     nohubneeds_eval()
     maskrandom_eval()
     content_slice_eval()
+    needtype_slice_eval()
     no_stopwords()
     stemming_eval()
-    needtype_slice_eval()
     cosinetrans_eval()
     intersection_eval()
     combine_eval()

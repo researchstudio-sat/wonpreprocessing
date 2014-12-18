@@ -21,7 +21,7 @@ from tools.evaluation_utils import NeedEvaluationDetailDict, NeedEvaluationDetai
 from tools.cosine_link_prediction import cosinus_link_prediciton
 from tools.tensor_utils import connection_indices, read_input_tensor, \
     predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking, \
-    matrix_to_array, execute_rescal, predict_rescal_connections_array, SparseTensor
+    matrix_to_array, execute_rescal, predict_rescal_connections_array, SparseTensor, extend_next_hop_transitive_connections
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -319,8 +319,8 @@ if __name__ == '__main__':
                         type=int, help="use only needs for the evaluation that do not exceed a number X of connections")
 
     # algorithm parameters
-    parser.add_argument('-rescal', action="store", dest="rescal", nargs=3,
-                        metavar=('rank', 'threshold', 'useNeedTypeSlice'),
+    parser.add_argument('-rescal', action="store", dest="rescal", nargs=4,
+                        metavar=('rank', 'threshold', 'useNeedTypeSlice', 'transitiveConnections'),
                         help="evaluate RESCAL algorithm")
     parser.add_argument('-rescalsim', action="store", dest="rescalsim", nargs=4,
                         metavar=('rank', 'threshold', 'useNeedTypeSlice', 'useConnectionSlice'),
@@ -472,6 +472,12 @@ if __name__ == '__main__':
 
         # evaluate the algorithms
         if args.rescal:
+
+            # set transitive connections before execution
+            if (args.rescal[3] == 'True'):
+                _log.info('extend connections transitively to the next need for RESCAL learning')
+                test_tensor = extend_next_hop_transitive_connections(test_tensor)
+
             # execute the rescal algorithm
             useNeedTypeSlice = (args.rescal[2] == 'True')
             A, R = execute_rescal(test_tensor, RESCAL_RANK, useNeedTypeSlice)
@@ -594,6 +600,10 @@ if __name__ == '__main__':
             output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
+            gexf = create_gexf_graph(input_tensor, evalDetails[0], True)
+            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph_predicted.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
         _log.info('----------------------------------------------------')
     if args.rescalsim:
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
@@ -603,6 +613,10 @@ if __name__ == '__main__':
                                      evalDetails[1])
             gexf = create_gexf_graph(input_tensor, evalDetails[1])
             output_file = open(outfolder + "/statistics/rescalsim_" + start_time + "/graph.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
+            gexf = create_gexf_graph(input_tensor, evalDetails[1], True)
+            output_file = open(outfolder + "/statistics/rescalsim_" + start_time + "/graph_predicted.gexf", "w")
             gexf.write(output_file)
             output_file.close()
         _log.info('----------------------------------------------------')
@@ -617,6 +631,10 @@ if __name__ == '__main__':
             output_file = open(outfolder + "/statistics/cosine_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
+            gexf = create_gexf_graph(input_tensor, evalDetails[2], True)
+            output_file = open(outfolder + "/statistics/cosine_" + start_time + "/graph_predicted.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
         _log.info('----------------------------------------------------')
     if args.cosine_weigthed:
         _log.info('For prediction of weighted cosine similarity between needs with thresholds: %f, %f'
@@ -627,6 +645,10 @@ if __name__ == '__main__':
                                      evalDetails[3])
             gexf = create_gexf_graph(input_tensor, evalDetails[3])
             output_file = open(outfolder + "/statistics/wcosine_" + start_time + "/graph.gexf", "w")
+            gexf.write(output_file)
+            output_file.close()
+            gexf = create_gexf_graph(input_tensor, evalDetails[3], True)
+            output_file = open(outfolder + "/statistics/wcosine_" + start_time + "/graph_predicted.gexf", "w")
             gexf.write(output_file)
             output_file.close()
     if args.cosine_rescal:
