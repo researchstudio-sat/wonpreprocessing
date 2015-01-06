@@ -112,6 +112,15 @@ def category_slice_eval():
     luigi.run(params + ['--rank',  '500', '--threshold', '0.03'])
     luigi.run(params + ['--rank',  '500', '--threshold', '0.04'])
 
+# evaluate the effect of adding the category slice to the RESCAL evaluation
+def keyword_slice_eval():
+    params = ['KeywordEvaluation'] + base_config() + \
+             ['--outputfolder', output_folder_config() + '/results/keyword'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor_keyword']
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.02'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.03'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.04'])
+
 # evaluate the effect of adding the needtype slice to the RESCAL evaluation
 def needtype_slice_eval():
     params = ['RESCALEvaluation'] + base_config() + RESCAL_DEFAULT_PARAMS + ['--needtypeslice'] + \
@@ -230,6 +239,7 @@ if __name__ == '__main__':
     nohubneeds_eval()
     maskrandom_eval()
     content_slice_eval()
+    # keyword_slice_eval()  # TODO: uncomment once finished.
     needtype_slice_eval()
     no_stopwords()
     stemming_eval()

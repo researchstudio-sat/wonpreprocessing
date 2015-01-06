@@ -26,9 +26,9 @@ def dataset_mails(path):
                  isfile(join(path, f)) and f.endswith('.eml')]
     filenames = np.array(filenames)
     np.random.shuffle(filenames)
-    tokenize = ScikitNltkTokenizerAdapter(
-        preprocessor=mail_preprocessor, lemmatizer=WordNetLemmatizer(),
-        pos_tagger=default_pos_tagger)
+    # pos_tagger=default_pos_tagger
+    tokenize = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
+                                          lemmatizer=WordNetLemmatizer())
     return filenames, 'filename', tokenize
 
 

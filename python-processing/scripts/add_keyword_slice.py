@@ -39,18 +39,23 @@ print('Loading documents.')
 # paths, input_type, tokenizer = dataset_small()
 # docs = list(paths)
 
-paths, input_type, tokenizer = dataset_mails(doc_path)
-docs, paths = get_document_names(doc_path, paths)
+# paths, input_type, tokenizer = dataset_mails(doc_path) # TODO
+docs, input_type, tokenizer = dataset_small()
+paths = docs  # TODO
+# docs, paths = get_document_names(doc_path, paths) # TODO
 
 print('Loaded ', len(docs), ' files from path: ', doc_path, '.')
 
 print('Extracting features.')
-vectorizer = create_vectorizer(input_type, tokenizer=tokenizer, min_df=2)
+# vectorizer = create_vectorizer(input_type, tokenizer=tokenizer, min_df=2)
+vectorizer = create_vectorizer(input_type, tokenizer=tokenizer)
 
 data = vectorizer.fit_transform(paths)
 features = vectorizer.get_feature_names()
 
-data = apply_threshold(data, 0.2)
+data = coo_matrix(data)
+
+# data = apply_threshold(data, 0.2)
 
 print('Reading headers.')
 with codecs.open(rescal_path + '/headers.txt', 'r', encoding='utf8') as f:
@@ -82,6 +87,6 @@ with codecs.open(rescal_path + '/headers.txt', 'w', encoding='utf8') as f:
     f.write('\n'.join(new_headers))
 
 print('Writing keywords.')
-mmwrite(rescal_path + '/keywords_slice.mtx', offset_matrix)
+mmwrite(rescal_path + '/keyword.mtx', offset_matrix)
 
 
