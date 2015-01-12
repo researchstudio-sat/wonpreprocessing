@@ -5,6 +5,19 @@ import luigi
 import subprocess
 
 
+def run_python(python_path, module_path, *args):
+    """Helper for running python scripts.
+
+    :param python_path: Path to python interpreter.
+    :param module_path: Path to python module.
+    :param args: Arguments for python module.
+    :return: None
+    """
+    command = [python_path, module_path]
+    command.extend(args)
+    os.system(" ".join(command))
+
+
 # Starting task in pipeline: Normalize the file names in the input mail
 # folder for later use.
 class NormalizeFileNames(luigi.Task):
@@ -81,6 +94,26 @@ class CreateCategorySlice(CreateTensor):
 
     def run(self):
         os.system("" + self.python + "create_category_slice.py " + self.getParams())
+
+
+class CreateKeywordSlice(CreateTensor):
+    """Optional task to create a keywords slice"""
+
+    # ngram_range = luigi.Parameter()
+
+    def requires(self):
+        return [CreateTensor(self.gatehome, self.jarfile,
+                             self.inputfolder, self.tensorfolder,
+                             self.connections, self.gateapp,
+                             self.stemming, self.content,
+                             self.java, self.python)]
+
+    def output(self):
+        return luigi.LocalTarget(self.tensorfolder + '/keyword.mtx')
+
+    def run(self):
+        run_python(self.python, 'add_keyword_slice.py', self.inputfolder,
+                   self.tensorfolder)
 
 
 # Use this task as a base class for different evaluation task variants
@@ -232,4 +265,24 @@ class CategoryEvaluation(RESCALEvaluation):
                                     self.allneeds)]
 
 
+class KeywordEvaluation(RESCALEvaluation):
+
+    def getParams(self):
+        self.additionalslices = "keyword.mtx"
+        params = super(KeywordEvaluation, self).getParams()
+        return params
+
+    def requires(self):
+        return [
+            CreateTensor(self.gatehome, self.jarfile,
+                         self.inputfolder, self.tensorfolder,
+                         self.connections, self.gateapp,
+                         self.stemming, self.content,
+                         self.java, self.python),
+            CreateKeywordSlice(self.gatehome, self.jarfile,
+                               self.inputfolder, self.tensorfolder,
+                               self.connections, self.gateapp,
+                               self.stemming, self.content,
+                               self.java, self.python)
+        ]
 

@@ -38,8 +38,8 @@ class ScikitNltkTokenizerAdapter:
         return [self.lemmatizer.lemmatize(token) for token in tokens]
 
 
-def create_vectorizer(input_type, tokenizer=None, min_df=1,
-                      stop_words='english', ngram_range=(1, 1)):
+def create_vectorizer(input_type, tokenizer, min_df=1, stop_words='english',
+                      ngram_range=(1, 2)):
     return TfidfVectorizer(input=input_type, tokenizer=tokenizer, min_df=min_df,
                            stop_words=stop_words, ngram_range=ngram_range)
 
@@ -65,8 +65,10 @@ def new_tensor_slice(headers, feature_definitions):
     coo matrix. Features not used are discarded together with their indices.
 
     :param headers: The original headers. Will not be modified.
-    :param feature_definitions: The 'dimension' definitions. Iterable of
-    ("dimension name", [feature values], [COO row or col indices])
+    :type headers: iterable
+    :param feature_definitions: The 'dimension' definitions.
+    :type feature_definitions: 2-tuple of ("dimension name", [feature values],
+    [COO row or col indices])
     :return: (The updated headers, new indices for current features)
     """
     headers = list(headers)

@@ -82,7 +82,8 @@ class NeedEvaluationDetailDict:
         sorted_idx = np.argsort(idx_test[0])
         i1 = [idx_test[0][i] for i in sorted_idx]
         i2 = [idx_test[1][i] for i in sorted_idx]
-        sorted_thresholds = [thresholds[i] for i in sorted_idx]
+        if thresholds != None:
+            sorted_thresholds = [thresholds[i] for i in sorted_idx]
         idx_test = (i1, i2)
 
         from_idx = 0
@@ -91,8 +92,10 @@ class NeedEvaluationDetailDict:
             to_idx = np.searchsorted(idx_test[0][from_idx:], need_from, side='right') + from_idx
             needDetails = self.retrieveNeedDetails(need_from)
             idx_temp = (idx_test[0][from_idx:to_idx], idx_test[1][from_idx:to_idx])
+            th = None
+            if thresholds != None:
+                th = sorted_thresholds[from_idx:to_idx]
             needDetails.addClassificationData(matrix_to_array(con_slice_true, idx_temp),
-                                              matrix_to_array(con_slice_pred, idx_temp), idx_temp[1],
-                                              sorted_thresholds[from_idx:to_idx])
+                                              matrix_to_array(con_slice_pred, idx_temp), idx_temp[1], th)
             from_idx = to_idx
 
