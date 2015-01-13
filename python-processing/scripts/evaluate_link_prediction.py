@@ -611,10 +611,6 @@ if __name__ == '__main__':
             output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
-            gexf = create_gexf_graph(input_tensor, evalDetails[0], True)
-            output_file = open(outfolder + "/statistics/rescal_" + start_time + "/graph_predicted.gexf", "w")
-            gexf.write(output_file)
-            output_file.close()
         _log.info('----------------------------------------------------')
     if args.rescalsim:
         _log.info('For RESCAL prediction based on need similarity with threshold: %f' % RESCAL_SIMILARITY_THRESHOLD)
@@ -624,10 +620,6 @@ if __name__ == '__main__':
                                      evalDetails[1])
             gexf = create_gexf_graph(input_tensor, evalDetails[1])
             output_file = open(outfolder + "/statistics/rescalsim_" + start_time + "/graph.gexf", "w")
-            gexf.write(output_file)
-            output_file.close()
-            gexf = create_gexf_graph(input_tensor, evalDetails[1], True)
-            output_file = open(outfolder + "/statistics/rescalsim_" + start_time + "/graph_predicted.gexf", "w")
             gexf.write(output_file)
             output_file.close()
         _log.info('----------------------------------------------------')
@@ -642,10 +634,6 @@ if __name__ == '__main__':
             output_file = open(outfolder + "/statistics/cosine_" + start_time + "/graph.gexf", "w")
             gexf.write(output_file)
             output_file.close()
-            gexf = create_gexf_graph(input_tensor, evalDetails[2], True)
-            output_file = open(outfolder + "/statistics/cosine_" + start_time + "/graph_predicted.gexf", "w")
-            gexf.write(output_file)
-            output_file.close()
         _log.info('----------------------------------------------------')
     if args.cosine_weigthed:
         _log.info('For prediction of weighted cosine similarity between needs with thresholds: %f, %f'
@@ -656,10 +644,6 @@ if __name__ == '__main__':
                                      evalDetails[3])
             gexf = create_gexf_graph(input_tensor, evalDetails[3])
             output_file = open(outfolder + "/statistics/wcosine_" + start_time + "/graph.gexf", "w")
-            gexf.write(output_file)
-            output_file.close()
-            gexf = create_gexf_graph(input_tensor, evalDetails[3], True)
-            output_file = open(outfolder + "/statistics/wcosine_" + start_time + "/graph_predicted.gexf", "w")
             gexf.write(output_file)
             output_file.close()
     if args.cosine_rescal:
