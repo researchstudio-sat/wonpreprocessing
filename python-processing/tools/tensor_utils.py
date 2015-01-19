@@ -163,7 +163,8 @@ def connection_indices(tensor):
     return nzsym
 
 # execute the recal algorithm
-def execute_rescal(input_tensor, rank, useNeedTypeSlice=True, useConnectionSlice=True):
+def execute_rescal(input_tensor, rank, useNeedTypeSlice=True, useConnectionSlice=True, init='nvecs', conv=1e-4,
+                   lambda_A=0, lambda_R=0, lambda_V=0):
 
     temp_tensor = input_tensor.getSliceMatrixList()
     if not (useNeedTypeSlice):
@@ -178,8 +179,8 @@ def execute_rescal(input_tensor, rank, useNeedTypeSlice=True, useConnectionSlice
         temp_tensor[0].shape + (len(temp_tensor),) + (rank,))
     )
     A, R, _, _, _ = rescal_als(
-        temp_tensor, rank, init='nvecs', conv=1e-3,
-        lambda_A=0, lambda_R=0, compute_fit='true'
+        temp_tensor, rank, init=init, conv=conv,
+        lambda_A=lambda_A, lambda_R=lambda_R, lambda_V=lambda_V, compute_fit='true'
     )
     _log.info('rescal stopped processing')
     return A, R

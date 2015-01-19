@@ -328,8 +328,9 @@ if __name__ == '__main__':
                         type=int, help="use only needs for the evaluation that do not exceed a number X of connections")
 
     # algorithm parameters
-    parser.add_argument('-rescal', action="store", dest="rescal", nargs=4,
-                        metavar=('rank', 'threshold', 'useNeedTypeSlice', 'transitiveConnections'),
+    parser.add_argument('-rescal', action="store", dest="rescal", nargs=9,
+                        metavar=('rank', 'threshold', 'useNeedTypeSlice', 'transitiveConnections', 'init', 'conv',
+                                 'lambda_A', 'lambda_R', 'lambda_V'),
                         help="evaluate RESCAL algorithm")
     parser.add_argument('-rescalsim', action="store", dest="rescalsim", nargs=4,
                         metavar=('rank', 'threshold', 'useNeedTypeSlice', 'useConnectionSlice'),
@@ -489,7 +490,9 @@ if __name__ == '__main__':
 
             # execute the rescal algorithm
             useNeedTypeSlice = (args.rescal[2] == 'True')
-            A, R = execute_rescal(test_tensor, RESCAL_RANK, useNeedTypeSlice)
+            A, R = execute_rescal(test_tensor, RESCAL_RANK, useNeedTypeSlice, init=args.rescal[4],
+                                  conv=float(args.rescal[5]), lambda_A=float(args.rescal[6]),
+                                  lambda_R=float(args.rescal[7]), lambda_V=float(args.rescal[8]))
 
             # evaluate the predictions
             _log.info('start predict connections ...')

@@ -167,6 +167,11 @@ class RESCALEvaluation(BaseEvaluation):
     threshold = luigi.FloatParameter(default=0.0)
     needtypeslice = luigi.BooleanParameter(default=False)
     transitive = luigi.BooleanParameter(default=False)
+    init = luigi.Parameter(default='nvecs')
+    conv = luigi.FloatParameter(default=1e-4)
+    lambdaA = luigi.FloatParameter(default=0.0)
+    lambdaR = luigi.FloatParameter(default=0.0)
+    lambdaV = luigi.FloatParameter(default=0.0)
     rank2 = luigi.IntParameter(default=0)
     threshold2 = luigi.FloatParameter(default=0.0)
     connectionslice2 = luigi.BooleanParameter(default=False)
@@ -175,7 +180,8 @@ class RESCALEvaluation(BaseEvaluation):
         params = super(RESCALEvaluation, self).getParams()
         if (self.rank != 0):
             params += " -rescal " + str(self.rank) + " " + \
-                str(self.threshold) + " " + str(self.needtypeslice) + " " + str(self.transitive)
+                str(self.threshold) + " " + str(self.needtypeslice) + " " + str(self.transitive) + " " + self.init + \
+                      " " + str(self.conv) + " " + str(self.lambdaA) + " " + str(self.lambdaR) + " " + str(self.lambdaV)
         if (self.rank2 != 0):
             params += " -rescalsim " + str(self.rank2) + " " + \
                 str(self.threshold2) + " " + str(self.needtypeslice) + " " + str(self.connectionslice2)

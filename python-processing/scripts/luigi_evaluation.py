@@ -205,6 +205,26 @@ def intersection_eval():
     luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.01', '--cosinethreshold', '0.6'])
     luigi.run(params + ['--rank',  '500', '--rescalthreshold', '0.005', '--cosinethreshold', '0.6'])
 
+# evaluate different configurations of rescal (init, conv, lambda parameters)
+def rescal_configuration_eval():
+    params = ['RESCALEvaluation'] + base_config() + ['--outputfolder', output_folder_config() + '/results/config'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor']
+
+    luigi.run(params)
+    luigi.run(params + ['--init', 'random'])
+    luigi.run(params + ['--lambdaA', '0.1'])
+    luigi.run(params + ['--lambdaR', '0.1'])
+    luigi.run(params + ['--lambdaV', '0.1'])
+    luigi.run(params + ['--lambdaA', '0.1', '--lambdaR', '0.1', '--lambdaV', '0.1'])
+    luigi.run(params + ['--conv', '1e-5'])
+    luigi.run(params + ['--conv', '1e-6'])
+    luigi.run(params + ['--lambdaA', '0.5'])
+    luigi.run(params + ['--lambdaR', '0.5'])
+    luigi.run(params + ['--lambdaV', '0.5'])
+    luigi.run(params + ['--lambdaA', '0.5', '--lambdaR', '0.5', '--lambdaV', '0.5'])
+    luigi.run(params)
+
+
 if __name__ == '__main__':
 
     # CLI processing
@@ -236,6 +256,7 @@ if __name__ == '__main__':
     nohubneeds_eval()
     maskrandom_eval()
     content_slice_eval()
+    rescal_configuration_eval()
     # keyword_slice_eval() # TODO: uncomment once finished.
     no_stopwords()
     stemming_eval()
