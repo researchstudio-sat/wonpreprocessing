@@ -26,9 +26,9 @@ def dataset_mails(path):
                  isfile(join(path, f)) and f.endswith('.eml')]
     filenames = np.array(filenames)
     np.random.shuffle(filenames)
-    # pos_tagger=default_pos_tagger
     tokenize = ScikitNltkTokenizerAdapter(preprocessor=mail_preprocessor,
-                                          lemmatizer=WordNetLemmatizer())
+                                          lemmatizer=WordNetLemmatizer(),
+                                          pos_tagger=default_pos_tagger)
     return filenames, 'filename', tokenize
 
 
@@ -38,4 +38,4 @@ def dataset_small():
                "Tokenization is currently fairly simple, so the period in Mr. gets tokenized."]
     np.random.shuffle(content)
     return content, 'content', ScikitNltkTokenizerAdapter(
-        lemmatizer=WordNetLemmatizer())
+        lemmatizer=WordNetLemmatizer(), pos_tagger=default_pos_tagger)
