@@ -164,6 +164,16 @@ def connections_rescal_eval():
                      ['--maxconnections', str(con)] + ['--outputfolder', output_folder_config() + '/results/connections'] + \
                      ['--tensorfolder', output_folder_config() + '/tensor']
             luigi.run(params)
+    connection_threshold = [(10,[0.015, 0.02]),
+                            (20,[0.015, 0.02]),
+                            (50,[0.015, 0.02])]
+    for tuple in connection_threshold:
+        for threshold in tuple[1]:
+            con = tuple[0]
+            params = ['RESCALEvaluation'] + base_config() + ['--rank',  '500', '--threshold', str(threshold)] + \
+                     ['--maxconnections', str(con)] + ['--outputfolder', output_folder_config() + '/results/connections'] + \
+                     ['--tensorfolder', output_folder_config() + '/tensor'] + ['--lambdaA', '5.0', '--lambdaR', '5.0', '--lambdaV', '5.0']
+            luigi.run(params)
 
 def num_needs_eval():
     params = ['AllEvaluation'] + base_config() + \
@@ -210,19 +220,53 @@ def rescal_configuration_eval():
     params = ['RESCALEvaluation'] + base_config() + ['--outputfolder', output_folder_config() + '/results/config'] + \
              ['--tensorfolder', output_folder_config() + '/tensor']
 
-    luigi.run(params)
-    luigi.run(params + ['--init', 'random'])
-    luigi.run(params + ['--lambdaA', '0.1'])
-    luigi.run(params + ['--lambdaR', '0.1'])
-    luigi.run(params + ['--lambdaV', '0.1'])
-    luigi.run(params + ['--lambdaA', '0.1', '--lambdaR', '0.1', '--lambdaV', '0.1'])
-    luigi.run(params + ['--conv', '1e-5'])
-    luigi.run(params + ['--conv', '1e-6'])
-    luigi.run(params + ['--lambdaA', '0.5'])
-    luigi.run(params + ['--lambdaR', '0.5'])
-    luigi.run(params + ['--lambdaV', '0.5'])
-    luigi.run(params + ['--lambdaA', '0.5', '--lambdaR', '0.5', '--lambdaV', '0.5'])
-    luigi.run(params)
+    luigi.run(params + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--init', 'random'] + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--lambdaA', '10.0'] + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--lambdaR', '10.0'] + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--lambdaV', '10.0'] + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--lambdaA', '1.0', '--lambdaR', '1.0', '--lambdaV', '1.0'] + RESCAL_DEFAULT_PARAMS)
+    luigi.run(params + ['--lambdaA', '5.0', '--lambdaR', '5.0', '--lambdaV', '5.0'] +
+              ['--rank',  '500', '--threshold', '0.015'])
+    luigi.run(params + ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'] +
+              ['--rank',  '500', '--threshold', '0.015'])
+    luigi.run(params + ['--lambdaA', '20.0', '--lambdaR', '20.0', '--lambdaV', '20.0'] +
+              ['--rank',  '500', '--threshold', '0.001'])
+    luigi.run(params + ['--conv', '1e-6'] + RESCAL_DEFAULT_PARAMS)
+
+# evaluate if the matching qulity increases when overfitting is prevented with the lambda parameters and thus the
+# rank can be increased
+def lambda_rank_rescal_eval():
+    params = ['RESCALEvaluation'] + base_config() + \
+             ['--outputfolder', output_folder_config() + '/results/lambda_rank'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor']
+    luigi.run(params + ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'] +
+              ['--rank',  '500', '--threshold', '0.01'])
+    luigi.run(params + ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'] +
+              ['--rank',  '1000', '--threshold', '0.01'])
+
+    params = ['CategoryEvaluation'] + base_config() + ['--allneeds', args.testdataset + '/allneeds.txt'] + \
+             ['--outputfolder', output_folder_config() + '/results/lambda_rank'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor_category']
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.02'] +
+              ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'])
+    luigi.run(params + ['--rank',  '1000', '--threshold', '0.02'] +
+              ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'])
+
+# evaluate the (so far) optimal configuration of RESCAL (category slice + lambda parameters)
+def optimal_rescal_eval():
+    params = ['CategoryEvaluation'] + base_config() + ['--allneeds', args.testdataset + '/allneeds.txt'] + \
+             ['--outputfolder', output_folder_config() + '/results/optimal'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor_category']
+
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.02'] +
+              ['--lambdaA', '5.0', '--lambdaR', '5.0', '--lambdaV', '5.0'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.025'] +
+              ['--lambdaA', '5.0', '--lambdaR', '5.0', '--lambdaV', '5.0'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.015'] +
+              ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'])
+    luigi.run(params + ['--rank',  '500', '--threshold', '0.02'] +
+              ['--lambdaA', '10.0', '--lambdaR', '10.0', '--lambdaV', '10.0'])
 
 
 if __name__ == '__main__':
@@ -250,23 +294,27 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # run the experiments
+    connections_rescal_eval()
+
     default_all_eval()
     category_slice_eval()
+    optimal_rescal_eval()
     transitive_eval()
     nohubneeds_eval()
     maskrandom_eval()
     content_slice_eval()
-    rescal_configuration_eval()
     # keyword_slice_eval() # TODO: uncomment once finished.
     no_stopwords()
     stemming_eval()
     needtype_slice_eval()
+    rescal_configuration_eval()
     cosinetrans_eval()
     intersection_eval()
     combine_eval()
     connections_rescal_eval()
     connection_rescalsim_eval()
     num_needs_eval()
+    lambda_rank_rescal_eval()
     rank_eval()
 
 

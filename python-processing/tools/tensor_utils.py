@@ -175,6 +175,8 @@ def execute_rescal(input_tensor, rank, useNeedTypeSlice=True, useConnectionSlice
         del temp_tensor[SparseTensor.CONNECTION_SLICE]
 
     _log.info('start rescal processing ...')
+    _log.info('config: init=%s, conv=%f, lambda_A=%f, lambda_R=%f, lambda_V=%f' %
+              (init, conv, lambda_A, lambda_R, lambda_V))
     _log.info('Datasize: %d x %d x %d | Rank: %d' % (
         temp_tensor[0].shape + (len(temp_tensor),) + (rank,))
     )
