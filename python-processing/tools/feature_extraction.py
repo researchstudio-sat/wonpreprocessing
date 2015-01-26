@@ -30,16 +30,20 @@ class ScikitNltkTokenizerAdapter:
         if self.preprocessor is not None:
             doc = self.preprocessor(doc)
         tokens = self.tokenizer(doc)
+        tagged = None
         if self.tagger is not None:
             tagged = self.tagger.tag(tokens)
             tokens = [token for token, tag in tagged if tag in self.tags]
         if self.lemmatizer is None:
             return tokens
+        if tagged is not None:
+            return [self.lemmatizer.lemmatize(token, tag)
+                    for token, tag in tagged]
         return [self.lemmatizer.lemmatize(token) for token in tokens]
 
 
-def create_vectorizer(input_type, tokenizer, min_df=1, stop_words='english',
-                      ngram_range=(1, 2)):
+def create_vectorizer(input_type, tokenizer, min_df=2, stop_words='english',
+                      ngram_range=(2, 2)):
     return TfidfVectorizer(input=input_type, tokenizer=tokenizer, min_df=min_df,
                            stop_words=stop_words, ngram_range=ngram_range)
 

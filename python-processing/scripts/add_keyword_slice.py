@@ -39,10 +39,10 @@ print('Loading documents.')
 # paths, input_type, tokenizer = dataset_small()
 # docs = list(paths)
 
-# paths, input_type, tokenizer = dataset_mails(doc_path) # TODO
-docs, input_type, tokenizer = dataset_small()
-paths = docs  # TODO
-# docs, paths = get_document_names(doc_path, paths) # TODO
+paths, input_type, tokenizer = dataset_mails(doc_path)  # TODO
+# docs, input_type, tokenizer = dataset_small()
+# paths = docs  # TODO
+docs, paths = get_document_names(doc_path, paths)  # TODO
 
 print('Loaded ', len(docs), ' files from path: ', doc_path, '.')
 
@@ -55,7 +55,7 @@ features = vectorizer.get_feature_names()
 
 data = coo_matrix(data)
 
-# data = apply_threshold(data, 0.2)
+# data = apply_threshold(data, 0.2)  # TODO
 
 print('Reading headers.')
 with codecs.open(rescal_path + '/headers.txt', 'r', encoding='utf8') as f:
