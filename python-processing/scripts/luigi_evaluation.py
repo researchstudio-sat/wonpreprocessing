@@ -112,6 +112,15 @@ def category_slice_eval():
     luigi.run(params + ['--rank',  '500', '--threshold', '0.03'])
     luigi.run(params + ['--rank',  '500', '--threshold', '0.04'])
 
+    params = ['CategoryCosineEvaluation'] + base_config() + ['--allneeds', args.testdataset + '/allneeds.txt'] + \
+             ['--outputfolder', output_folder_config() + '/results/category'] + \
+             ['--tensorfolder', output_folder_config() + '/tensor_category']
+    luigi.run(params + COSINE_DEFAULT_PARAMS)
+    luigi.run(params + ['--costhreshold', '0.45', '--costransthreshold', '0.0', '--wcosthreshold', '0.45',
+                        '--wcostransthreshold', '0.0'])
+    luigi.run(params + ['--costhreshold', '0.4', '--costransthreshold', '0.0', '--wcosthreshold', '0.4',
+                        '--wcostransthreshold', '0.0'])
+
 # evaluate the effect of adding the category slice to the RESCAL evaluation
 def keyword_slice_eval():
     params = ['KeywordEvaluation'] + base_config() + \
@@ -163,7 +172,7 @@ def connections_rescal_eval():
             params = ['RESCALEvaluation'] + base_config() + ['--rank',  '500', '--threshold', str(threshold)] + \
                      ['--maxconnections', str(con)] + ['--outputfolder', output_folder_config() + '/results/connections'] + \
                      ['--tensorfolder', output_folder_config() + '/tensor']
-            luigi.run(params)
+    luigi.run(params)
     connection_threshold = [(10,[0.015, 0.02]),
                             (20,[0.015, 0.02]),
                             (50,[0.015, 0.02])]
@@ -294,15 +303,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # run the experiments
-    connections_rescal_eval()
+    #
 
     default_all_eval()
     category_slice_eval()
+    maskrandom_eval()
+    content_slice_eval()
     optimal_rescal_eval()
     transitive_eval()
     nohubneeds_eval()
-    maskrandom_eval()
-    content_slice_eval()
     # keyword_slice_eval() # TODO: uncomment once finished.
     no_stopwords()
     stemming_eval()

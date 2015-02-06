@@ -78,8 +78,13 @@ def termFrequencies (attributemat):
 #   "transitive_threshold" value to 0 for no transitive connection prediction).
 # weighted: True if the attribute terms should be weighted
 def cosinus_link_prediciton(tensor, new_elements, threshold, transitive_threshold, weighted):
+
     # slice 2 of the tensor are the attributes
     attributemat = tensor.getSliceMatrix(SparseTensor.ATTR_SUBJECT_SLICE)
+
+    # if the category slice is available also use the category information as attributes
+    attributemat = attributemat + tensor.getSliceMatrix(SparseTensor.CATEGORY_SLICE)
+
     attributemat = attributemat.toarray()
     allneeds = tensor.getNeedIndices()
     offers = tensor.getOfferIndices()

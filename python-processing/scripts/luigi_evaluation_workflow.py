@@ -270,6 +270,28 @@ class CategoryEvaluation(RESCALEvaluation):
                                     self.java, self.python,
                                     self.allneeds)]
 
+class CategoryCosineEvaluation(CosineEvaluation):
+
+    allneeds = luigi.Parameter()
+
+    def getParams(self):
+        self.additionalslices = "subject.mtx content.mtx category.mtx"
+        params = super(CategoryCosineEvaluation, self).getParams()
+        return params
+
+    def requires(self):
+        return [CreateTensor(self.gatehome, self.jarfile,
+                             self.inputfolder, self.tensorfolder,
+                             self.connections, self.gateapp,
+                             self.stemming, self.content,
+                             self.java, self.python),
+                CreateCategorySlice(self.gatehome, self.jarfile,
+                                    self.inputfolder, self.tensorfolder,
+                                    self.connections, self.gateapp,
+                                    self.stemming, self.content,
+                                    self.java, self.python,
+                                    self.allneeds)]
+
 
 class KeywordEvaluation(RESCALEvaluation):
 
