@@ -112,7 +112,8 @@ class CreateKeywordSlice(CreateTensor):
         return luigi.LocalTarget(self.tensorfolder + '/keyword.mtx')
 
     def run(self):
-        run_python(self.python, 'add_keyword_slice.py', self.inputfolder,
+        run_python(self.python, 'add_keyword_slice.py',
+                   self.tensorfolder + '/preprocessed',  # Use the proprocessed files!!!
                    self.tensorfolder)
 
 
