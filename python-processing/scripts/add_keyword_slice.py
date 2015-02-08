@@ -15,7 +15,7 @@ YES = {'y', 'yes', 't', 'true'}
 if len(sys.argv) < 2:
     raise Exception('ARGS: <documents dir> <rescal dir>')
 
-use_small_dataset = len(sys.argv) > 2 and sys.argv[3].lower() in YES
+use_small_dataset = len(sys.argv) > 3 and sys.argv[3].lower() in YES
 doc_path = sys.argv[1]
 rescal_path = sys.argv[2]
 
