@@ -7,9 +7,29 @@ from nltk import word_tokenize
 _stop_symbols = {'(', ')', '<', '>', '[', ']'}
 
 _default_tagger = nltk.data.load(nltk.tag._POS_TAGGER)
-_default_tags = {'NN', 'NNS', 'VBZ', 'JJ', 'RB', 'VBG'}
 
-default_pos_tagger = (_default_tagger, _default_tags)
+from nltk.corpus.reader.wordnet import NOUN, VERB, ADJ, ADV
+
+_tag_map = {
+    'NN': NOUN,
+    'NNS': NOUN,
+    'NNP': NOUN,
+    'NNPS': NOUN,
+    'VB': VERB,
+    'VBD': VERB,
+    'VBG': VERB,
+    'VBN': VERB,
+    'VBP': VERB,
+    'VBZ': VERB,
+    'JJ': ADJ,
+    'JJR': ADJ,
+    'JJS': ADJ,
+    'RB': ADV,
+    'RBR': ADV,
+    'RBS': ADV,
+}
+
+default_pos_tagger = (_default_tagger, _tag_map.keys())
 
 
 class ScikitNltkTokenizerAdapter:
@@ -32,18 +52,21 @@ class ScikitNltkTokenizerAdapter:
         tokens = self.tokenizer(doc)
         tagged = None
         if self.tagger is not None:
-            tagged = self.tagger.tag(tokens)
-            tokens = [token for token, tag in tagged if tag in self.tags]
+            tagged = [(token, tag)
+                      for token, tag in self.tagger.tag(tokens)
+                      if tag in self.tags]
+            tokens = [token for token, tag in tagged]
         if self.lemmatizer is None:
             return tokens
         if tagged is not None:
-            return [self.lemmatizer.lemmatize(token, tag)
-                    for token, tag in tagged]
+            std_tagged = [(token, _tag_map[tag]) for token, tag in tagged]
+            return [self.lemmatizer.lemmatize(token, pos=tag)
+                    for token, tag in std_tagged]
         return [self.lemmatizer.lemmatize(token) for token in tokens]
 
 
-def create_vectorizer(input_type, tokenizer, min_df=2, stop_words='english',
-                      ngram_range=(2, 2)):
+def create_vectorizer(input_type, tokenizer, min_df=1, stop_words='english',
+                      ngram_range=(1, 2)):
     return TfidfVectorizer(input=input_type, tokenizer=tokenizer, min_df=min_df,
                            stop_words=stop_words, ngram_range=ngram_range)
 

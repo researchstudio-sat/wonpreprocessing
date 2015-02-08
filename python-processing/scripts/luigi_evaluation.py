@@ -312,7 +312,7 @@ if __name__ == '__main__':
     optimal_rescal_eval()
     transitive_eval()
     nohubneeds_eval()
-    # keyword_slice_eval() # TODO: uncomment once finished.
+    keyword_slice_eval()
     no_stopwords()
     stemming_eval()
     needtype_slice_eval()
