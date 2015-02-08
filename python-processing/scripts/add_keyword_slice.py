@@ -46,7 +46,8 @@ else:
 print('Loaded ', len(docs), ' files from path: ', doc_path, '.')
 
 print('Extracting features.')
-vectorizer = create_vectorizer(input_type, tokenizer=tokenizer)
+vectorizer = create_vectorizer(input_type, tokenizer=tokenizer,
+                               ngram_range=(1, 1))
 
 data = vectorizer.fit_transform(paths)
 features = vectorizer.get_feature_names()
