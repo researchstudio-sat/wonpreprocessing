@@ -45,10 +45,9 @@ def add_transitv_connections(candidates, connectionmatrix, new_element_index, ch
     return connectionmatrix
 
 #Gereate the inverse term frequencies
-def termFrequencies (attributemat):
+def termFrequencies (attributemat, numberOfDocuments):
     colsum=attributemat.sum(axis=0)
-    totalnumberatt=sum(colsum)
-    numberdocuments = len(colsum)
+    numberdocuments = numberOfDocuments
     inftermfre = []
     for item in colsum:
         if item == 0:
@@ -100,10 +99,10 @@ def cosinus_link_prediciton(tensor, new_elements, threshold, transitive_threshol
         else:
             checkset = offers
 
-        # get the weighted attribut matrix
+        # get the weighted attribute matrix
         if weighted:
-            weighted = termFrequencies(attributemat)
-            attributemat = weighted * attributemat
+            weighted = termFrequencies(attributemat, len(allneeds)) # IDF
+            attributemat = weighted * attributemat  # TF * IDF
 
         #get the most comment elements
         most_common_elements_weighted = most_common_elements(allneeds, attributemat, new_element)

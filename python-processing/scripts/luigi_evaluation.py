@@ -15,7 +15,7 @@ import luigi_evaluation_workflow
 
 RESCAL_DEFAULT_PARAMS = ['--rank',  '500', '--threshold', '0.02']
 RESCAL2_DEFAULT_PARAMS = ['--rank2',  '500', '--threshold2', '0.06']
-COSINE_DEFAULT_PARAMS = ['--costhreshold', '0.5', '--costransthreshold', '0.0', '--wcosthreshold', '0.5',
+COSINE_DEFAULT_PARAMS = ['--costhreshold', '0.5', '--costransthreshold', '0.0', '--wcosthreshold', '0.6',
                          '--wcostransthreshold', '0.0']
 
 def output_folder_config():
@@ -303,8 +303,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # run the experiments
-    #
-
     default_all_eval()
     category_slice_eval()
     maskrandom_eval()
