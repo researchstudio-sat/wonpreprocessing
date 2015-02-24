@@ -10,6 +10,7 @@ from scipy.sparse import csr_matrix, lil_matrix
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 from rescal import rescal_als
+from extrescal.extrescal import rescal
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -87,6 +88,27 @@ class SparseTensor:
             attr = self.data[slice][need,].nonzero()[1]
             attr = [self.getHeaders()[i][6:] for i in attr]
             return attr
+
+        # return the "need x need" matrix and their connections between them without attributes for the extension of
+        # the rescal algorithm extrescal
+        def getPureNeedConnectionMatrix(self):
+            # conSlice = self.getSliceMatrix(SparseTensor.CONNECTION_SLICE)
+            # indices = self.getNeedIndices()
+            # conSlice = conSlice.tocsc()[:,indices]
+            # return conSlice.tocsr()[indices,:]
+            return self.getSliceMatrix(SparseTensor.CONNECTION_SLICE)
+
+        # return the "need x attribute" matrix D for the extension of the rescal algorithm extrescal
+        def getNeedAttributeMatrix(self):
+            D = self.getSliceMatrix(1)
+            for i in range(2, len(self.data)):
+                D = D + self.getSliceMatrix(i)
+            # needIndices = self.getNeedIndices()
+            attrIndices = self.getAttributeIndices()
+            D = D.tocsc()[:, attrIndices]
+            # return D.tocsr()[needIndices, :]
+            return D.tocsr()
+
 
 
 # read the input tensor data (e.g. data-0.mtx ... data-3.mtx) and
@@ -177,14 +199,50 @@ def execute_rescal(input_tensor, rank, useNeedTypeSlice=True, useConnectionSlice
     _log.info('start rescal processing ...')
     _log.info('config: init=%s, conv=%f, lambda_A=%f, lambda_R=%f, lambda_V=%f' %
               (init, conv, lambda_A, lambda_R, lambda_V))
-    _log.info('Datasize: %d x %d x %d | Rank: %d' % (
+    _log.info('Tensor: %d x %d x %d | Rank: %d' % (
         temp_tensor[0].shape + (len(temp_tensor),) + (rank,))
     )
+
     A, R, _, _, _ = rescal_als(
         temp_tensor, rank, init=init, conv=conv,
         lambda_A=lambda_A, lambda_R=lambda_R, lambda_V=lambda_V, compute_fit='true'
     )
+
     _log.info('rescal stopped processing')
+    return A, R
+
+
+def execute_extrescal(input_tensor, rank, init='nvecs', conv=1e-4, lmbda=0):
+
+    temp_tensor = [input_tensor.getPureNeedConnectionMatrix()]
+    D = input_tensor.getNeedAttributeMatrix()
+
+    _log.info('start extrescal processing ...')
+    _log.info('config: init=%s, conv=%f, lmbda=%f' % (init, conv, lmbda))
+    _log.info('Tensor: %d x %d x %d | Attribute Matrix: %d x %d | Rank: %d' % (
+        temp_tensor[0].shape + (len(temp_tensor),) + D.shape + (rank,))
+    )
+
+    result  = rescal(temp_tensor, D, rank, init=init, conv=conv, lmbda=lmbda)
+    _log.info('extrescal stopped processing')
+    A = result[0]
+    R = result[1]
+
+    # fill the Matrix A with 0's rows (for the attributes) to match the default rescal format (needs and attributes
+    # intermixed in tensor, no extra attribute matrix)
+    # needIndices = input_tensor.getNeedIndices()
+    # if 0 in needIndices:
+    #     A_default = A[0,:]
+    # else:
+    #     A_default = np.zeros((1, A.shape[1]))
+    # j = 1
+    # for i in range(1, len(input_tensor.getHeaders())):
+    #     if i in needIndices:
+    #         A_default = np.vstack((A_default, A[j,:]))
+    #         j += 1
+    #     else:
+    #         A_default = np.vstack((A_default, np.zeros((1, A.shape[1]))))
+    # return A_default, R
     return A, R
 
 # execute the rescal algorithm and return a prediction tensor

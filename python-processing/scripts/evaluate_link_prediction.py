@@ -21,7 +21,8 @@ from tools.evaluation_utils import NeedEvaluationDetailDict, NeedEvaluationDetai
 from tools.cosine_link_prediction import cosinus_link_prediciton
 from tools.tensor_utils import connection_indices, read_input_tensor, \
     predict_rescal_connections_by_need_similarity, predict_rescal_connections_by_threshold, similarity_ranking, \
-    matrix_to_array, execute_rescal, predict_rescal_connections_array, SparseTensor, extend_next_hop_transitive_connections
+    matrix_to_array, execute_rescal, execute_extrescal, predict_rescal_connections_array, SparseTensor, \
+    extend_next_hop_transitive_connections
 
 # for all test_needs return all indices (shuffeld) to all other needs in the connection slice
 def need_connection_indices(all_needs, test_needs):
@@ -490,9 +491,11 @@ if __name__ == '__main__':
 
             # execute the rescal algorithm
             useNeedTypeSlice = (args.rescal[2] == 'True')
-            A, R = execute_rescal(test_tensor, RESCAL_RANK, useNeedTypeSlice, init=args.rescal[4],
-                                  conv=float(args.rescal[5]), lambda_A=float(args.rescal[6]),
-                                  lambda_R=float(args.rescal[7]), lambda_V=float(args.rescal[8]))
+            # A, R = execute_rescal(test_tensor, RESCAL_RANK, useNeedTypeSlice, init=args.rescal[4],
+            #                       conv=float(args.rescal[5]), lambda_A=float(args.rescal[6]),
+            #                       lambda_R=float(args.rescal[7]), lambda_V=float(args.rescal[8]))
+            A, R = execute_extrescal(test_tensor, RESCAL_RANK, init=args.rescal[4],
+                                     conv=float(args.rescal[5]), lmbda=float(args.rescal[6]))
 
             # evaluate the predictions
             _log.info('start predict connections ...')
