@@ -113,7 +113,7 @@ class CreateKeywordSlice(CreateTensor):
 
     def run(self):
         run_python(self.python, 'add_keyword_slice.py',
-                   self.tensorfolder + '/preprocessed',  # Use the proprocessed files!!!
+                   self.tensorfolder + '/preprocessed/',  # Use the proprocessed files!!!
                    self.tensorfolder)
 
 
