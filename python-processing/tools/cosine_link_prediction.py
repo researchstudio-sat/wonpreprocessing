@@ -81,8 +81,9 @@ def cosinus_link_prediciton(tensor, new_elements, threshold, transitive_threshol
     # slice 2 of the tensor are the attributes
     attributemat = tensor.getSliceMatrix(SparseTensor.ATTR_SUBJECT_SLICE)
 
-    # if the category slice is available also use the category information as attributes
-    attributemat = attributemat + tensor.getSliceMatrix(SparseTensor.CATEGORY_SLICE)
+    # if the category and content slice is available also use these information as attributes
+    attributemat = attributemat + tensor.getSliceMatrix(SparseTensor.CATEGORY_SLICE) + \
+                   tensor.getSliceMatrix(SparseTensor.ATTR_CONTENT_SLICE)
 
     attributemat = attributemat.toarray()
     allneeds = tensor.getNeedIndices()
