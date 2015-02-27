@@ -79,6 +79,7 @@ print('Contrasting slice.')
 contrasted_data = (data.data > 0).astype(float)
 
 offset_matrix = coo_matrix((contrasted_data, (offset_row, offset_col)))
+float_matrix = coo_matrix((data.data, (offset_row, offset_col)))
 
 print('Writing headers.')
 
@@ -87,5 +88,6 @@ with codecs.open(rescal_path + '/headers.txt', 'w', encoding='utf8') as f:
 
 print('Writing keywords.')
 mmwrite(rescal_path + '/keyword.mtx', offset_matrix)
+mmwrite(rescal_path + '/keyword_float.mtx', float_matrix)
 
 
