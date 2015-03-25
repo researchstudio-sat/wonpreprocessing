@@ -74,7 +74,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>won.preprocessing.MailProcessing</mainClass>
+                            <mainClass>won.preprocessing.MailGateProcessing</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

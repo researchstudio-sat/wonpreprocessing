@@ -32,6 +32,25 @@ class NormalizeFileNames(luigi.Task):
     def run(self):
         os.system("" + self.python + " normalize_file_names.py " + self.inputfolder + " " + self.outputfolder)
 
+class PreprocessMailFileContent(luigi.Task):
+    inputfolder = luigi.Parameter()
+    outputfolder = luigi.Parameter()
+    java = luigi.Parameter(default='java')
+    python = luigi.Parameter(default='python')
+    jarfile = luigi.Parameter(default="../../target/wonpreprocessing-1.0-SNAPSHOT-jar-with-dependencies.jar")
+
+    def requires(self):
+        return [NormalizeFileNames(self.inputfolder, self.inputfolder + "/normalized", self.python)]
+
+    def output(self):
+        return luigi.LocalTarget(self.outputfolder)
+
+    def run(self):
+        java_call = [self.java, '-cp', self.jarfile, 'won.preprocessing.MailPreprocessing']
+        params = ['-input', self.inputfolder + "/normalized",
+                  '-output', self.outputfolder]
+        print subprocess.check_output(java_call + params)
+
 
 # After the file names are normalized, this task executes the Java/Gate preprocessing
 # on the mail folder and create the basic tensor.
@@ -49,7 +68,7 @@ class CreateTensor(luigi.Task):
     python = luigi.Parameter(default='python')
 
     def requires(self):
-        return [NormalizeFileNames(self.inputfolder, self.inputfolder + "/normalized", self.python)]
+        return [PreprocessMailFileContent(self.inputfolder, self.inputfolder + "/preprocessed", self.java, self.python)]
 
     def output(self):
         return luigi.LocalTarget(self.tensorfolder), \
@@ -61,9 +80,10 @@ class CreateTensor(luigi.Task):
 
     def run(self):
         java_call = [self.java, '-Xmx3G', '-Dgate.home=' + self.gatehome,
-                     '-jar', self.jarfile]
+                     '-cp', self.jarfile, 'won.preprocessing.MailGateProcessing']
         params = ['-gateapp', self.gateapp,
-                  '-input', self.input()[0].path,
+                  #'-input', self.input()[0].path,
+                  '-input', self.inputfolder + "/preprocessed",
                   '-output', self.tensorfolder,
                   '-connections', self.connections]
         if self.stemming:
@@ -93,7 +113,7 @@ class CreateCategorySlice(CreateTensor):
        return self.input()[0][0].path + " " + self.allneeds
 
     def run(self):
-        os.system("" + self.python + "create_category_slice.py " + self.getParams())
+        run_python(self.python, 'create_category_slice.py', self.getParams())
 
 
 class CreateKeywordSlice(CreateTensor):
@@ -113,7 +133,7 @@ class CreateKeywordSlice(CreateTensor):
 
     def run(self):
         run_python(self.python, 'add_keyword_slice.py',
-                   self.tensorfolder + '/preprocessed/',  # Use the proprocessed files!!!
+                   self.inputfolder + '/preprocessed/',  # Use the proprocessed files!!!
                    self.tensorfolder)
 
 

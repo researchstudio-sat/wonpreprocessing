@@ -24,7 +24,7 @@ import codecs
 
 folder = sys.argv[1]
 outfolder = folder + "/categories/"
-file = codecs.open(folder + "/allneeds3.txt",  mode="r", encoding="utf8")
+file = codecs.open(folder + "/allneeds.txt",  mode="r", encoding="utf8")
 lines = file.read().splitlines()
 
 if not os.path.exists(outfolder):

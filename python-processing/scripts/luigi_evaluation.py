@@ -5,7 +5,8 @@ import argparse
 import luigi_evaluation_workflow
 
 
-# This is the executed experiments script for the link prediction evaluation (e.g. on the 'testdataset_20141112').
+# This is the executed experiments script for the link prediction evaluation
+# (e.g. on the 'testdataset_20141112' or a newer version).
 # It executes the luigi_evaluation_workflow with the parameters specified below.
 #
 # how to run (for installation see README.MD):
@@ -301,6 +302,7 @@ if __name__ == '__main__':
                         help='path to python')
 
     args = parser.parse_args()
+
 
     # run the experiments
     default_all_eval()

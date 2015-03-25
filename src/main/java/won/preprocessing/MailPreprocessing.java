@@ -16,7 +16,6 @@
 
 package won.preprocessing;
 
-import gate.util.GateException;
 import org.apache.commons.cli.*;
 import org.apache.commons.mail.util.MimeMessageParser;
 import org.slf4j.Logger;
@@ -30,21 +29,17 @@ import java.nio.charset.Charset;
 /**
  * Created by hfriedrich on 26.06.2014.
  *
- * Preprocess mail files to produce input for the Gate processing and the matching algorithm.
+ * Preprocess mail files to produce input for the Gate processing {@link won.preprocessing.MailGateProcessing}.
  *
  * Input parameters:
  * args[0] - Input mail folder: place the mail .eml files to be processed here
  * args[1] - Output folder: preprocesses mail files to extract the important content to this folder.
- * Furthermore creates a subfolder called "rescal" were the connections.txt file must be placed befire execution,
- * and then creates the rescal tensor data and header files in this directory.
  */
-public class MailProcessing
+public class MailPreprocessing
 {
-  private static final Logger logger = LoggerFactory.getLogger(MailProcessing.class);
-  private static final String GATE_APP_PATH = "src/main/resources/gate/application.xgapp";
-
-  private static final String FROM_PREFIX = "From: ";
-  private static final String TO_PREFIX = "To: ";
+  private static final Logger logger = LoggerFactory.getLogger(MailPreprocessing.class);
+//  private static final String FROM_PREFIX = "From: ";
+//  private static final String TO_PREFIX = "To: ";
   private static final String DATE_PREFIX = "Date: ";
   private static final String SUBJECT_PREFIX = "Subject: ";
   private static final String CONTENT_PREFIX = "Content: ";
@@ -53,52 +48,28 @@ public class MailProcessing
 
     String input = null;
     String output = null;
-    String workingFolder = null;
-    String connections = null;
-    String gateApp = null;
-    boolean createContentSlice = false;
-    boolean useStemming = false;
 
     // create Options object for command line input
     Options options = new Options();
     options.addOption("input", true, "input mail file folder");
     options.addOption("output", true, "output results folder");
-    options.addOption("connections", true, "connections txt file");
-    options.addOption("gateapp" ,true, "gate application path (to .xgapp)");
-    options.addOption("content", false, "create a content slice in addition to the subject and need type slices");
-    options.addOption("stemming" , false, "use stemming in preprocessing");
-    options.addOption("ignoreNeedsNotFound", false, "ignore connections from the connection txt file that refer" +
-      " to needs that are not found in the input mail files");
 
     CommandLineParser parser = new BasicParser();
     try {
       CommandLine cmd = parser.parse(options, args);
       input = cmd.getOptionValue("input");
       output = cmd.getOptionValue("output");
-      connections = cmd.getOptionValue("connections");
-      gateApp = cmd.getOptionValue("gateapp", GATE_APP_PATH);
-      createContentSlice = cmd.hasOption("content");
-      useStemming = cmd.hasOption("stemming");
 
       if (input == null || output == null) {
         HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp( "-input <folder> -output <folder>  ... other optional options", options );
+        formatter.printHelp("-input <folder> -output <folder>", options );
       }
 
-      workingFolder = output + "/preprocessed";
-      MailProcessing.preprocessMails(input, workingFolder);
-      GateRESCALProcessing rescal = new GateRESCALProcessing(gateApp, workingFolder, createContentSlice, useStemming);
-      rescal.processFilesWithGate(workingFolder);
-      if (connections != null) {
-        rescal.addConnectionData(connections, cmd.hasOption("ignoreNeedsNotFound"));
-      }
-      rescal.createRescalData(output);
+      MailPreprocessing.preprocessMails(input, output);
 
     } catch (ParseException e) {
       logger.error(e.getMessage(), e);
     } catch (IOException e) {
-      logger.error(e.getMessage(), e);
-    } catch (GateException e) {
       logger.error(e.getMessage(), e);
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
@@ -111,7 +82,7 @@ public class MailProcessing
    *
    * @param inputFolder  input folder with the mails
    * @param outputFolder output folder with extracted content files
-   * @throws IOException
+   * @throws java.io.IOException
    */
   private static void preprocessMails(String inputFolder, String outputFolder) throws IOException {
 
@@ -145,6 +116,7 @@ public class MailProcessing
         MimeMessageParser parser = new MimeMessageParser(emailMessage);
         parser.parse();
         String content = null;
+        String subject = parser.getSubject();
         if (parser.hasPlainContent()) {
           content = parser.getPlainContent();
           int endIndex = content.indexOf("-------------");
@@ -156,19 +128,27 @@ public class MailProcessing
           content = parser.getHtmlContent();
         }
 
+        // filter out email addresses and phone numbers
+        String emailRegex = "[a-zA-Z0-9_.-]+@[a-zA-Z0-9_.-]+\\.[a-zA-Z0-9_.-]+";
+        String phoneRegex = "[() 0-9-]{8,20}[\\s]";
+        subject = subject.replaceAll(emailRegex, " ");
+        content = content.replaceAll(emailRegex, " ");
+        subject = subject.replaceAll(phoneRegex, " ");
+        content = content.replaceAll(phoneRegex, " ");
+
         File outfile = new File(outputFolder + "/" + file.getName());
         logger.debug("writing output file: {}", outfile.getAbsolutePath());
-        logger.debug("- mail subject: {}", parser.getSubject());
+        logger.debug("- mail subject: {}", subject);
         FileOutputStream outputStream = new FileOutputStream(outfile);
 
         // Enforce UTF-8 when writing files. Non UTF-8 files will be reported.
         fw = new OutputStreamWriter(outputStream, Charset.forName("UTF-8"));
 
-        fw.append(FROM_PREFIX + parser.getFrom() + "\n");
-        fw.append(TO_PREFIX + parser.getTo() + "\n");
+        // fw.append(FROM_PREFIX + parser.getFrom() + "\n");
+        // fw.append(TO_PREFIX + parser.getTo() + "\n");
         fw.append(DATE_PREFIX + emailMessage.getSentDate() + "\n");
-        fw.append(SUBJECT_PREFIX + parser.getSubject() + "\n");
-        fw.append(CONTENT_PREFIX + /*parser.getPlainContent()*/content + "\n");
+        fw.append(SUBJECT_PREFIX + subject + "\n");
+        fw.append(CONTENT_PREFIX + content + "\n");
 
       } catch (MessagingException me) {
         logger.error("Error opening mail file: " + file.getAbsolutePath(), me);

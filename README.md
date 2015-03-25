@@ -25,7 +25,7 @@ What to install:
 
 How to run:
 ============
-* a test data set (e.g. 'testdataset_20141112.zip') is needed to run the evaluation on
+* a test data set (e.g. 'testdataset_20141112.zip' or a newer version) is needed to run the evaluation
 * extract the test data set to a test data set folder
 * execute maven build (package) of this project to build the 'wonpreprocessing-1.0-SNAPSHOT-jar-with-dependencies.jar'
 * the whole process can be executed by starting the script 'luigi_evaluation.py' with its parameters
