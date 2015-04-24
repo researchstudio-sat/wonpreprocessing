@@ -347,6 +347,9 @@ if __name__ == '__main__':
     parser.add_argument('-intersection', action="store", dest="intersection",
                         nargs=4, metavar=('rescal_rank', 'rescal_threshold', 'cosine_threshold', 'useNeedTypeSlice'),
                         help="compute the prediction intersection of algorithms cosine similarity and rescal")
+    parser.add_argument('-prediction_matrix_file', action='store', dest='prediction_matrix_file',
+                        help='path to matrix file (same file format as connection slice of tensor) that makes '
+                             'connection predictions and can be generated separately')
 
     args = parser.parse_args()
     folder = args.inputfolder
@@ -369,6 +372,11 @@ if __name__ == '__main__':
     header_input = folder + "/" + args.headers
     slices = SparseTensor.defaultSlices + [SparseTensor.ATTR_CONTENT_SLICE, SparseTensor.CATEGORY_SLICE]
     input_tensor = read_input_tensor(header_input, data_input, slices, True)
+
+    # load the matrix connection prediction input data if available
+    if args.prediction_matrix_file:
+        file_prediction_tensor = read_input_tensor(header_input, [args.prediction_matrix_file],
+                                              [SparseTensor.CONNECTION_SLICE], True)
 
 
     # TEST-PARAMETERS:
@@ -442,7 +450,7 @@ if __name__ == '__main__':
     need_fold_size = int(len(needs) / FOLDS)
     connection_fold_size = int(len(connections[0]) / FOLDS)
     AUC_test = np.zeros(FOLDS)
-    report = [EvaluationReport(F_BETA) for _ in range(9)]
+    report = [EvaluationReport(F_BETA) for _ in range(10)]
     evalDetails = [NeedEvaluationDetailDict() for _ in range(4)]
 
     _log.info('Number of test needs: %d (OFFERS: %d, WANTS: %d)' %
@@ -599,6 +607,12 @@ if __name__ == '__main__':
             report[6].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
                                                                              idx_test), cosine_pred)
 
+        if args.prediction_matrix_file:
+            file_pred = file_prediction_tensor.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE, idx_test);
+            report[9].add_evaluation_data(GROUND_TRUTH.getArrayFromSliceMatrix(SparseTensor.CONNECTION_SLICE,
+                                                                                idx_test), file_pred)
+
+
         # end of fold loop
 
     _log.info('====================================================')
@@ -662,6 +676,9 @@ if __name__ == '__main__':
         _log.info('For prediction of cosine similarity between needs with thresholds: %f:' %
                   float(args.intersection[2]))
         report[6].summary()
+    if args.prediction_matrix_file:
+        _log.info('External file (' + args.prediction_matrix_file + ') predictions: ')
+        report[9].summary()
 
 
 
