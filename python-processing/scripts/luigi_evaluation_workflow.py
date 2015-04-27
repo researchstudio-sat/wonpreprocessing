@@ -189,7 +189,7 @@ class RESCALEvaluation(BaseEvaluation):
     needtypeslice = luigi.BooleanParameter(default=False)
     transitive = luigi.BooleanParameter(default=False)
     init = luigi.Parameter(default='nvecs')
-    conv = luigi.FloatParameter(default=1e-4)
+    conv = luigi.FloatParameter(default=1e-3)
     lambdaA = luigi.FloatParameter(default=0.0)
     lambdaR = luigi.FloatParameter(default=0.0)
     lambdaV = luigi.FloatParameter(default=0.0)

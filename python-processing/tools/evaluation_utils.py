@@ -1,7 +1,11 @@
+import codecs
+import os
+
 __author__ = 'hfriedrich'
 
 import numpy as np
 from tensor_utils import matrix_to_array
+import sklearn.metrics as m
 
 # class to store statistical detail data for a need, data like number true positives, true negatives,
 # false positives, false negatives can be used to calculate precision, recall, accuracy, fscore.
@@ -99,3 +103,131 @@ class NeedEvaluationDetailDict:
                                               matrix_to_array(con_slice_pred, idx_temp), idx_temp[1], th)
             from_idx = to_idx
 
+    # helper function
+    def create_file_from_sorted_list(self, dir, filename, list):
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        file = codecs.open(dir + "/" + filename,'w+',encoding='utf8')
+        list.sort()
+        for entry in list:
+            file.write(entry + "\n")
+        file.close()
+
+    # in a specified folder create files which represent tested needs. For each of these files print the
+    # binary classifiers: TP, FP, FN including the (connected/not connected) need names for manual detailed analysis of
+    # the classification algorithm.
+    def output_statistic_details(self, outputpath, headers, fbeta, printThresholds=False):
+        if not os.path.exists(outputpath):
+            os.makedirs(outputpath)
+        summary_file = codecs.open(outputpath + "/_summary.txt",'a+',encoding='utf8')
+
+        for need in self.dict.keys():
+            # write need details file
+            needEval = self.dict[need]
+            if printThresholds:
+                needDetails = [ "TP (%f): " % needEval.TP_thresholds[i] + headers[needEval.TP_toNeeds[i]][6:]
+                                for i in range(len(needEval.TP_toNeeds))]
+                needDetails += [ "FN (%f): " % needEval.FN_thresholds[i] + headers[needEval.FN_toNeeds[i]][6:]
+                                 for i in range(len(needEval.FN_toNeeds))]
+                needDetails += [ "FP (%f): " % needEval.FP_thresholds[i] + headers[needEval.FP_toNeeds[i]][6:]
+                                 for i in range(len(needEval.FP_toNeeds))]
+            else:
+                needDetails = [ "TP: " + headers[toNeed][6:] for toNeed in needEval.TP_toNeeds]
+                needDetails += [ "FN: " + headers[toNeed][6:] for toNeed in needEval.FN_toNeeds]
+                needDetails += [ "FP: " + headers[toNeed][6:] for toNeed in needEval.FP_toNeeds]
+
+            self.create_file_from_sorted_list(outputpath, headers[need][6:] + ".txt", needDetails)
+
+        # write the summary file
+        summary_file.write(headers[need][6:])
+        summary_file.write(": TP: " + str(self.dict[need].TP))
+        summary_file.write(": TN: " + str(self.dict[need].TN))
+        summary_file.write(": FP: " + str(self.dict[need].FP))
+        summary_file.write(": FN: " + str(self.dict[need].FN))
+        summary_file.write(": Precision: " + str(self.dict[need].getPrecision()))
+        summary_file.write(": Recall: " + str(self.dict[need].getRecall()))
+        summary_file.write(": f%f-score : " % fbeta + str(self.dict[need].getFScore(fbeta)))
+        summary_file.write(": Accuracy: " + str(self.dict[need].getAccuracy()) + "\n")
+        summary_file.close()
+
+
+
+
+# class to collect data during the runs of the test and print calculated measures for summary
+class EvaluationReport:
+
+    def __init__(self, logger, f_beta=1.0):
+        self.f_beta = f_beta
+        self.precision = []
+        self.recall = []
+        self.accuracy = []
+        self.fscore = []
+        self.logger = logger
+
+    def add_evaluation_data(self, y_true, y_pred):
+        p, r, f, _ =  m.precision_recall_fscore_support(y_true, y_pred, average='weighted', beta=self.f_beta)
+        a = m.accuracy_score(y_true, y_pred)
+        cm = m.confusion_matrix(y_true, y_pred, [1, 0])
+        self.precision.append(p)
+        self.recall.append(r)
+        self.fscore.append(f)
+        self.accuracy.append(a)
+        self.logger.info('accuracy: %f' % a)
+        self.logger.info('precision: %f' % p)
+        self.logger.info('recall: %f' % r)
+        self.logger.info('f%.01f-score: %f' % (self.f_beta, f))
+        self.logger.info('confusion matrix: ' + str(cm))
+
+    def summary(self):
+        a = np.array(self.accuracy)
+        p = np.array(self.precision)
+        r = np.array(self.recall)
+        f = np.array(self.fscore)
+        self.logger.info('Accuracy Mean / Std: %f / %f' % (a.mean(), a.std()))
+        self.logger.info('Precision Mean / Std: %f / %f' % (p.mean(), p.std()))
+        self.logger.info('Recall Mean / Std: %f / %f' % (r.mean(), r.std()))
+        self.logger.info('F%.01f-Score Mean / Std: %f / %f' % (self.f_beta, f.mean(), f.std()))
+
+
+# calculate the optimal threshold by maximizing the f-score measure
+def get_optimal_threshold(recall, precision, threshold, f_beta=1.0):
+    max_f_score = 0
+    optimal_threshold = 0.0
+    for i in range(len(threshold)):
+        r = recall[i]
+        p = precision[i]
+        div = (f_beta * f_beta * p + r)
+        if div != 0:
+            f_score = (1 + f_beta * f_beta) * (p * r) / div
+            if f_score > max_f_score:
+                max_f_score = f_score
+                optimal_threshold = threshold[i]
+    return optimal_threshold
+
+# write precision/recall (and threshold) curve to file
+def write_precision_recall_curve_file(folder, outfilename, precision, recall, threshold):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    file = codecs.open(folder + "/" + outfilename,'w+',encoding='utf8')
+    file.write("precision, recall, threshold")
+    prevline = ""
+    for i in range(1, len(threshold)):
+        line = "\n%.3f, %.3f, %.3f" % (precision[i], recall[i], threshold[i])
+        if line != prevline:
+            file.write(line)
+            prevline = line
+    file.close()
+
+# write ROC curve with TP and FP (and threshold) to file
+def write_ROC_curve_file(folder, outfilename, TP, FP, threshold):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    file = codecs.open(folder + "/" + outfilename,'w+',encoding='utf8')
+    file.write("TP, FP, threshold")
+    prevline = ""
+    for i in range(1, len(threshold)):
+        line = "\n%.3f, %.3f, %.3f" % (TP[i], FP[i], threshold[i])
+        if line != prevline:
+            file.write(line)
+            prevline = line
+    file.close()
