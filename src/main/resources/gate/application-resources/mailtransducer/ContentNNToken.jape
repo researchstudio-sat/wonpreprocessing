@@ -1,0 +1,11 @@
+Phase: ContentNNToken
+Input:  ContentToken Token
+Options: control = brill
+
+Rule: ContentNNTokenRule
+Priority: 20
+(
+{ContentToken, Token.category =~ NN}
+):token
+-->
+:token.ContentNNToken = {rule = "ContentNNTokenRule", string = :token.Token.string, length = :token.Token.length, category = :token.Token.category} 

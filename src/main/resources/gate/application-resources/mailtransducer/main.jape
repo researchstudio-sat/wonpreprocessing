@@ -5,6 +5,7 @@ Content
 Brackets
 FilterToken
 ContentToken
+ContentNNToken
 SubjectToken
 NeedClassificationToken
 TopicToken

@@ -8,6 +8,12 @@
       <gate.util.persistence.PersistenceManager-URLHolder>
         <urlString>$relpath$plugins/Stemmer_Snowball/</urlString>
       </gate.util.persistence.PersistenceManager-URLHolder>
+      <gate.util.persistence.PersistenceManager-URLHolder>
+        <urlString>$relpath$plugins/ANNIE-2/</urlString>
+      </gate.util.persistence.PersistenceManager-URLHolder>
+      <gate.util.persistence.PersistenceManager-URLHolder>
+        <urlString>$relpath$plugins/Stemmer_Snowball-2/</urlString>
+      </gate.util.persistence.PersistenceManager-URLHolder>
     </localList>
     <collectionType>java.util.ArrayList</collectionType>
   </urlList>
@@ -316,7 +322,7 @@
             </localMap>
           </runtimeParams>
           <resourceType>gate.creole.Transducer</resourceType>
-          <resourceName>Mailtransducer</resourceName>
+          <resourceName>Mailtransducer1</resourceName>
           <initParams class="gate.util.persistence.MapPersistence">
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
@@ -359,7 +365,7 @@
               </entry>
               <entry>
                 <string>annotationSetName</string>
-                <string />
+                <null />
               </entry>
               <entry>
                 <string>annotationType</string>
@@ -397,7 +403,7 @@
               </entry>
               <entry>
                 <string>annotationSetName</string>
-                <string />
+                <null />
               </entry>
               <entry>
                 <string>annotationType</string>
