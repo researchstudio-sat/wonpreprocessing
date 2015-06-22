@@ -24,13 +24,15 @@ class SparseTensor:
         CONNECTION_SLICE, NEED_TYPE_SLICE, ATTR_SUBJECT_SLICE, ATTR_CONTENT_SLICE, CATEGORY_SLICE = range(5)
         defaultSlices = [CONNECTION_SLICE, NEED_TYPE_SLICE, ATTR_SUBJECT_SLICE]
 
-        def __init__(self, headers):
+        def __init__(self, headers, offerString="Attr: OFFER", wantString="Attr: WANT"):
             self.shape = (len(headers), len(headers))
             self.data = [csr_matrix(np.zeros(shape=self.shape))] * 5
             self.headers = list(headers)
+            self.offerString = offerString
+            self.wantString = wantString
 
         def copy(self):
-            copyTensor = SparseTensor(self.headers)
+            copyTensor = SparseTensor(self.headers, self.offerString, self.wantString)
             for i in range(len(self.data)):
                 copyTensor.addSliceMatrix(self.data[i], i)
             return copyTensor
@@ -67,7 +69,7 @@ class SparseTensor:
         # return a list of indices which refer to rows/columns of needs of type OFFER in the tensor
         def getOfferIndices(self):
             needs = self.getNeedIndices()
-            offer_attr_idx = self.getHeaders().index("Attr: OFFER")
+            offer_attr_idx = self.getHeaders().index(self.offerString)
             offers = [need for need in needs if
                       (self.getSliceMatrix(SparseTensor.NEED_TYPE_SLICE)[need, offer_attr_idx] == 1)]
             return offers
@@ -75,7 +77,7 @@ class SparseTensor:
         # return a list of indices which refer to rows/columns of needs of type WANT in the tensor
         def getWantIndices(self):
             needs = self.getNeedIndices()
-            want_attr_idx = self.getHeaders().index("Attr: WANT")
+            want_attr_idx = self.getHeaders().index(self.wantString)
             wants = [need for need in needs if
                      (self.getSliceMatrix(SparseTensor.NEED_TYPE_SLICE)[need, want_attr_idx] == 1)]
             return wants
@@ -93,7 +95,8 @@ class SparseTensor:
 # the headers file (e.g. headers.txt)
 # if adjustDim is True then the dimensions of the slice matrix
 # files are automatically adjusted to fit to biggest dimensions of all slices
-def read_input_tensor(headers_filename, data_file_names, tensor_slices, adjustDim=False):
+def read_input_tensor(headers_filename, data_file_names, tensor_slices, adjustDim=False, offerString="Attr: OFFER",
+                      wantString="Attr: WANT"):
 
     #load the header file
     _log.info("Read header input file: " + headers_filename)
@@ -113,7 +116,7 @@ def read_input_tensor(headers_filename, data_file_names, tensor_slices, adjustDi
 
     # load the data files
     slice = 0
-    tensor = SparseTensor(headers)
+    tensor = SparseTensor(headers, offerString, wantString)
     for data_file in data_file_names:
         if adjustDim:
             adjusted = adjust_mm_dimension(data_file, maxDim)
