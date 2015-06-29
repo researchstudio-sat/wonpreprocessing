@@ -10,12 +10,12 @@
 *
 *  Diana Maynard, 10 Sep 2001
 * 
-*  $Id: name.jape 17326 2014-02-17 16:38:01Z dgmaynard $
+*  $Id: name.jape 18116 2014-06-23 11:35:16Z dgmaynard $
 */
 
 
 Phase:	Name
-Input: Token Lookup Title FirstPerson Upper ClosedClass Initials Split UserID
+Input: Token Lookup Title FirstPerson Upper ClosedClass Initials Split UserID URL
 Options: control = appelt debug = false
 
 ///////////////////////////////////////////////////////////////
@@ -34,13 +34,13 @@ Macro: TITLE
 
 Macro: FIRSTNAME
 
- ({FirstPerson.gender == male} |
-  {FirstPerson.gender == female})
+ ({FirstPerson.gender == male, FirstPerson.kind != ambig} |
+  {FirstPerson.gender == female, FirstPerson.kind != ambig})
 
 
 Macro: FIRSTNAMEAMBIG
 (
- {Lookup.majorType == person_first, Lookup.minorType == ambig}
+ {FirstPerson.kind == ambig}
 )
 
 
@@ -49,6 +49,7 @@ Macro: FIRSTNAMEAMBIG
 
 Macro: PERSONENDING
 (
+ ({Token.string == ","})?
  {Lookup.majorType == person_ending}
 )
 
@@ -81,16 +82,14 @@ Priority: 1000
 {}
 
 
-
 Rule:Reject
 Priority: 1000
 // stops certain things being recognised as People
 (
- {ClosedClass}
+ ({ClosedClass}|{URL})[1,5]
 )
 -->
 {}
-
 
 Rule:    GazPerson
 Priority: 50
@@ -178,9 +177,7 @@ Rule: PersonFirstContext
 Priority: 30
 // Anne and Kenton
 
-(
- {FirstPerson}
-):person1
+(FIRSTNAME):person1
 (
  {Token.string == "and"}
 )
@@ -398,7 +395,7 @@ Priority: 20
 
 
 Rule: NotFirstPersonStop
-Priority: 50
+Priority: 70
 // ambig first name and surname is stop word
 // e.g. Will And
 
@@ -418,9 +415,7 @@ Rule: FirstPersonStop
 Priority: 50
 // John And
 
-(
- {FirstPerson}
-):person
+(FIRSTNAME):person
 (
  {Token.category == DT}|
  {Token.category == PRP}|
@@ -434,7 +429,7 @@ gate.Annotation personAnn = (gate.Annotation)person.iterator().next();
 gate.FeatureMap features = Factory.newFeatureMap();
 features.put("gender", personAnn.getFeatures().get("gender"));
 features.put("kind", "firstName");
-features.put("rule", "GazPersonFirst");
+features.put("rule", "FirstPersonStop");
 outputAS.add(person.firstNode(), person.lastNode(), "TempPerson",
 features);
 }
@@ -493,6 +488,49 @@ Priority: 50
 :loc.TempLocation = {kind = "locName", rule = LocPersonAmbig2}
 
 
+Rule: LocPersonAmbig3
+Priority: 100
+// Ambiguous Location/Person + Possible Surname --> Person
+
+(
+ {Lookup.majorType == location, Lookup.ambig == yes, FirstPerson}
+ (PREFIX)
+ ({Upper,!Initials})
+ (PERSONENDING)?
+):person
+-->
+{
+gate.AnnotationSet person = (gate.AnnotationSet)bindings.get("person");
+gate.Annotation personAnn = (gate.Annotation)person.iterator().next();
+gate.FeatureMap features = Factory.newFeatureMap();
+features.put("gender", personAnn.getFeatures().get("gender"));
+features.put("kind", "firstName");
+features.put("rule", "LocPersonAmbig3");
+outputAS.add(person.firstNode(), person.lastNode(), "TempPerson",
+features);
+}
+
+
+Rule: PersonFullInitialsCaps
+Priority: 100
+// TO FISH
+// If the initials is of type nopunct, we want to discard the Person if the surname is also in all caps, as it's too ambiguous
+
+(
+ {Token.category == DT}
+)?
+(
+ 
+  ({Initials.kind == nopunct})
+  ((FIRSTNAME | FIRSTNAMEAMBIG )?)
+ ((PREFIX)*
+  ({Upper.kind == allCaps})
+  (PERSONENDING)?
+ )
+):person -->
+:person.Discard = {rule = "PersonFullInitialsCaps"}
+
+
 
 Rule: 	PersonFullInitials
 Priority: 10
@@ -503,7 +541,7 @@ Priority: 10
 )?
 (
  
-  ({Initials}):initials
+  ({Initials, !Lookup}):initials
   ((FIRSTNAME | FIRSTNAMEAMBIG )?):middleName
  ((PREFIX)*
   ({Upper,!Initials})
@@ -552,9 +590,7 @@ Rule: 	PersonFull
 Priority: 10
 // F.W. Jones
 // Fred Jones
-(
- {Token.category == DT}
-)?
+
 (
  
   (FIRSTNAME | FIRSTNAMEAMBIG ):firstName
@@ -597,6 +633,107 @@ outputAS.add(personSet.firstNode(), personSet.lastNode(), "TempPerson",
 features);
 
 }
+
+Rule: 	PersonFullDoubleBarrelled
+Priority: 9
+// F.W. Smith Jones
+// Fred Smith Jones
+
+
+(
+ 
+  (FIRSTNAME | FIRSTNAMEAMBIG ):firstName
+ ((PREFIX)*
+  ({Upper,!Initials})
+  ({Upper,!Initials})
+  (PERSONENDING)?
+ ):surname
+):person -->
+{
+ gate.FeatureMap features = Factory.newFeatureMap();
+ gate.AnnotationSet personSet = (gate.AnnotationSet)bindings.get("person");
+ gate.Annotation personAnn = (gate.Annotation)personSet.iterator().next();
+  
+  gate.AnnotationSet firstNameSet = (gate.AnnotationSet)bindings.get("firstName");
+  gate.Annotation firstNameAnn = (gate.Annotation)firstNameSet.iterator().next();
+ 
+ String firstNameContent = gate.Utils.stringFor(doc, firstNameAnn);
+ features.put("firstName", firstNameContent);
+ features.put("gender", firstNameAnn.getFeatures().get("gender"));
+
+ gate.AnnotationSet middleNameSet = (gate.AnnotationSet)bindings.get("middleName");
+
+ if (middleNameSet != null && middleNameSet.size()>0)
+{
+ gate.Annotation middleNameAnn = (gate.Annotation)middleNameSet.iterator().next();
+ String middleNameContent = gate.Utils.stringFor(doc, middleNameAnn);
+ features.put("middleName", middleNameContent);
+}
+
+ gate.AnnotationSet surnameSet = (gate.AnnotationSet)bindings.get("surname");
+ gate.Annotation surnameAnn = (gate.Annotation)surnameSet.iterator().next();
+
+ String surnameContent = gate.Utils.stringFor(doc, surnameAnn);
+ features.put("surname", surnameContent);
+
+ features.put("kind", "fullName");
+ features.put("rule", "PersonFullDoubleBarrelled");
+outputAS.add(personSet.firstNode(), personSet.lastNode(), "TempPerson",
+features);
+
+}
+
+
+
+Rule: 	PersonMiddleInitial
+Priority: 10
+// Fred C. Jones
+
+
+(
+ 
+  (FIRSTNAME | FIRSTNAMEAMBIG ):firstName
+  ({Initials}):initials
+ ((PREFIX)*
+  ({Upper,!Initials})
+  (PERSONENDING)?
+ ):surname
+):person -->
+{
+ gate.FeatureMap features = Factory.newFeatureMap();
+ gate.AnnotationSet personSet = (gate.AnnotationSet)bindings.get("person");
+ gate.Annotation personAnn = (gate.Annotation)personSet.iterator().next();
+  
+  gate.AnnotationSet firstNameSet = (gate.AnnotationSet)bindings.get("firstName");
+  gate.Annotation firstNameAnn = (gate.Annotation)firstNameSet.iterator().next();
+ 
+ String firstNameContent = gate.Utils.stringFor(doc, firstNameAnn);
+ features.put("firstName", firstNameContent);
+ features.put("gender", firstNameAnn.getFeatures().get("gender"));
+
+ gate.AnnotationSet initialsSet = (gate.AnnotationSet)bindings.get("initials");
+
+ if (initialsSet != null && initialsSet.size()>0)
+{
+ gate.Annotation initialsAnn = (gate.Annotation)initialsSet.iterator().next();
+ String initialsContent = gate.Utils.stringFor(doc, initialsAnn);
+ features.put("initials", initialsContent);
+}
+
+ gate.AnnotationSet surnameSet = (gate.AnnotationSet)bindings.get("surname");
+ gate.Annotation surnameAnn = (gate.Annotation)surnameSet.iterator().next();
+
+ String surnameContent = gate.Utils.stringFor(doc, surnameAnn);
+ features.put("surname", surnameContent);
+
+ features.put("kind", "fullName");
+ features.put("rule", "PersonFull");
+outputAS.add(personSet.firstNode(), personSet.lastNode(), "TempPerson",
+features);
+
+}
+
+
 
 Rule: PersonFullStop
 Priority: 50
@@ -660,7 +797,7 @@ Priority: 40
 
 // Christian name + Location --> Person's Name
 (
-  ({Lookup.majorType == person_first}):firstName
+  (FIRSTNAME):firstName
   ({Lookup.majorType == location}):surname
 ):person -->
 {
@@ -741,7 +878,6 @@ Priority: 50
 )
 :orgName -->
  :orgName.TempOrganization = {kind = "unknown", rule = "PersonOrgAmbig"}
-
 
 
 
@@ -841,6 +977,33 @@ Priority: 50
 )
 :orgName -->  
   :orgName.TempOrganization = {kind = "orgName", rule=LocOrganization}
+
+
+Rule: NewspaperEnding
+Priority: 200
+// GSA Today
+
+(
+ ({Upper}|{Initials})
+ {Lookup.majorType == newspaper_ending}
+):orgName
+-->
+{
+ gate.FeatureMap features = Factory.newFeatureMap();
+gate.AnnotationSet orgSet = (gate.AnnotationSet)bindings.get("orgName");
+gate.AnnotationSet org = (gate.AnnotationSet)orgSet.get("Lookup");
+
+if (org != null && org.size()>0)
+{
+  gate.Annotation orgAnn = (gate.Annotation)org.iterator().next();
+  features.put("orgType", orgAnn.getFeatures().get("minorType"));
+}
+// create some new features
+  features.put("rule", "NewspaperEndng");
+// create a TempOrg annotation and add the features we've created
+outputAS.add(orgSet.firstNode(), orgSet.lastNode(), "TempOrganization",
+features);
+}
 
 
 Rule:	INOrgXandY
@@ -1284,7 +1447,7 @@ Priority: 130
 
 
 Rule: 	Location1
-Priority: 75
+Priority: 200
 // Lookup = city, country, province, region, water
 
 // Western Europe
@@ -1323,7 +1486,7 @@ features);
 }
 
 Rule:	GazLocation
-Priority: 70
+Priority: 200
 (
  {Token.category == DT}
 )?  

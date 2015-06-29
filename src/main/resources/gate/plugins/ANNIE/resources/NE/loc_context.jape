@@ -10,7 +10,7 @@
 *
 *  Diana Maynard, 02 Aug 2001
 * 
-*  $Id: loc_context.jape 17693 2014-03-18 16:20:50Z dgmaynard $
+*  $Id: loc_context.jape 18627 2015-04-10 10:47:13Z dgmaynard $
 */
 
 Phase:	Loc_Context
@@ -82,7 +82,11 @@ Priority: 50
  {Location.locType == region}
 )
 -->
- :loc.Location = {rule = "UnknownLocRegion"}
+ :loc.Location = {rule = "UnknownLocRegion"},
+ {
+gate.AnnotationSet loc = (gate.AnnotationSet) bindings.get("loc");
+outputAS.removeAll(loc);
+}
 
 Rule: LocState
 Priority: 100
@@ -104,5 +108,8 @@ Priority: 20
  {Lookup.majorType == loc_general_key}
 )
 -->
-:tag.Location = {locType = unknown, rule = "UnknownLocKey"}
-
+:tag.Location = {locType = unknown, rule = "UnknownLocKey"},
+{
+gate.AnnotationSet loc = (gate.AnnotationSet) bindings.get("tag");
+outputAS.removeAll(loc);
+}

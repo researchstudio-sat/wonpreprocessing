@@ -10,7 +10,7 @@
 *
 *  Diana Maynard, 02 Aug 2001
 * 
-*  $Id: number.jape 17311 2014-02-14 18:49:50Z dgmaynard $
+*  $Id: number.jape 18115 2014-06-23 11:19:17Z dgmaynard $
 */
 
 
@@ -75,7 +75,7 @@ Rule:	MoneyCurrencyUnit
 // 30 pounds
   (        
       (AMOUNT_NUMBER)
-      ({Lookup.majorType == currency_unit})
+      ({Lookup.majorType == currency_unit,Lookup.minorType == post_amount})
   )
 :number -->
   :number.Money = {kind = "number", rule = "MoneyCurrencyUnit"}
@@ -94,7 +94,7 @@ Rule:	MoneySymbolUnit
   {Lookup.majorType == currency_unit})
  (AMOUNT_NUMBER)
  (
-  {Lookup.majorType == currency_unit}
+  {Lookup.majorType == currency_unit, Lookup.minorType == post_amount}
  )?
 ) 
 :number 

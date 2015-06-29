@@ -8,12 +8,6 @@
       <gate.util.persistence.PersistenceManager-URLHolder>
         <urlString>$relpath$plugins/Stemmer_Snowball/</urlString>
       </gate.util.persistence.PersistenceManager-URLHolder>
-      <gate.util.persistence.PersistenceManager-URLHolder>
-        <urlString>$relpath$plugins/ANNIE-2/</urlString>
-      </gate.util.persistence.PersistenceManager-URLHolder>
-      <gate.util.persistence.PersistenceManager-URLHolder>
-        <urlString>$relpath$plugins/Stemmer_Snowball-2/</urlString>
-      </gate.util.persistence.PersistenceManager-URLHolder>
     </localList>
     <collectionType>java.util.ArrayList</collectionType>
   </urlList>
@@ -34,12 +28,8 @@
                 </gate.util.persistence.CollectionPersistence>
               </entry>
               <entry>
-                <string>document</string>
-                <null />
-              </entry>
-              <entry>
-                <string>annotationTypes</string>
-                <null />
+                <string>keepOriginalMarkupsAS</string>
+                <boolean>true</boolean>
               </entry>
               <entry>
                 <string>corpus</string>
@@ -53,8 +43,12 @@
                 </gate.util.persistence.CollectionPersistence>
               </entry>
               <entry>
-                <string>keepOriginalMarkupsAS</string>
-                <boolean>true</boolean>
+                <string>annotationTypes</string>
+                <null />
+              </entry>
+              <entry>
+                <string>document</string>
+                <null />
               </entry>
             </localMap>
           </runtimeParams>
@@ -78,11 +72,11 @@
                 <string />
               </entry>
               <entry>
-                <string>document</string>
+                <string>corpus</string>
                 <null />
               </entry>
               <entry>
-                <string>corpus</string>
+                <string>document</string>
                 <null />
               </entry>
             </localMap>
@@ -99,13 +93,13 @@
               <entry>
                 <string>tokeniserRulesURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
-                  <urlString>$relpath$plugins/ANNIE/resources/tokeniser/DefaultTokeniser.rules</urlString>
+                  <urlString>$relpath$application-resources/tokeniser/DefaultTokeniser.rules</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
               <entry>
                 <string>transducerGrammarURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
-                  <urlString>$relpath$plugins/ANNIE/resources/tokeniser/postprocess.jape</urlString>
+                  <urlString>$relpath$application-resources/tokeniser/postprocess.jape</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
             </localMap>
@@ -120,24 +114,24 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>wholeWordsOnly</string>
-                <boolean>true</boolean>
-              </entry>
-              <entry>
-                <string>longestMatchOnly</string>
-                <boolean>true</boolean>
-              </entry>
-              <entry>
-                <string>document</string>
-                <null />
+                <string>annotationSetName</string>
+                <string />
               </entry>
               <entry>
                 <string>corpus</string>
                 <null />
               </entry>
               <entry>
-                <string>annotationSetName</string>
-                <string />
+                <string>longestMatchOnly</string>
+                <boolean>true</boolean>
+              </entry>
+              <entry>
+                <string>wholeWordsOnly</string>
+                <boolean>true</boolean>
+              </entry>
+              <entry>
+                <string>document</string>
+                <null />
               </entry>
             </localMap>
           </runtimeParams>
@@ -147,8 +141,8 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>caseSensitive</string>
-                <boolean>false</boolean>
+                <string>gazetteerFeatureSeparator</string>
+                <string>:</string>
               </entry>
               <entry>
                 <string>listsURL</string>
@@ -157,12 +151,12 @@
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
               <entry>
-                <string>gazetteerFeatureSeparator</string>
-                <string>:</string>
-              </entry>
-              <entry>
                 <string>encoding</string>
                 <string>UTF-8</string>
+              </entry>
+              <entry>
+                <string>caseSensitive</string>
+                <boolean>false</boolean>
               </entry>
             </localMap>
           </initParams>
@@ -176,19 +170,19 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>outputASName</string>
-                <null />
-              </entry>
-              <entry>
-                <string>document</string>
-                <null />
-              </entry>
-              <entry>
                 <string>corpus</string>
                 <null />
               </entry>
               <entry>
+                <string>outputASName</string>
+                <null />
+              </entry>
+              <entry>
                 <string>inputASName</string>
+                <null />
+              </entry>
+              <entry>
+                <string>document</string>
                 <null />
               </entry>
             </localMap>
@@ -205,13 +199,13 @@
               <entry>
                 <string>gazetteerListsURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
-                  <urlString>$relpath$plugins/ANNIE/resources/sentenceSplitter/gazetteer/lists.def</urlString>
+                  <urlString>$relpath$application-resources/gazetteer/lists.def</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
               <entry>
                 <string>transducerURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
-                  <urlString>$relpath$plugins/ANNIE/resources/sentenceSplitter/grammar/main-single-nl.jape</urlString>
+                  <urlString>$relpath$application-resources/grammar/main-single-nl.jape</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
             </localMap>
@@ -226,6 +220,10 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
+                <string>failOnMissingInputAnnotations</string>
+                <boolean>true</boolean>
+              </entry>
+              <entry>
                 <string>document</string>
                 <null />
               </entry>
@@ -234,24 +232,8 @@
                 <null />
               </entry>
               <entry>
-                <string>outputAnnotationType</string>
-                <string>Token</string>
-              </entry>
-              <entry>
-                <string>inputASName</string>
-                <null />
-              </entry>
-              <entry>
-                <string>failOnMissingInputAnnotations</string>
-                <boolean>true</boolean>
-              </entry>
-              <entry>
                 <string>outputASName</string>
                 <null />
-              </entry>
-              <entry>
-                <string>baseSentenceAnnotationType</string>
-                <string>Sentence</string>
               </entry>
               <entry>
                 <string>posTagAllTokens</string>
@@ -259,6 +241,18 @@
               </entry>
               <entry>
                 <string>baseTokenAnnotationType</string>
+                <string>Token</string>
+              </entry>
+              <entry>
+                <string>inputASName</string>
+                <null />
+              </entry>
+              <entry>
+                <string>baseSentenceAnnotationType</string>
+                <string>Sentence</string>
+              </entry>
+              <entry>
+                <string>outputAnnotationType</string>
                 <string>Token</string>
               </entry>
             </localMap>
@@ -273,15 +267,15 @@
                 <null />
               </entry>
               <entry>
-                <string>rulesURL</string>
+                <string>lexiconURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
-                  <urlString>$relpath$plugins/ANNIE/resources/heptag/ruleset</urlString>
+                  <urlString>$relpath$application-resources/heptag/lexicon</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
               <entry>
-                <string>lexiconURL</string>
+                <string>rulesURL</string>
                 <gate.util.persistence.PersistenceManager-URLHolder>
-                  <urlString>$relpath$plugins/ANNIE/resources/heptag/lexicon</urlString>
+                  <urlString>$relpath$application-resources/heptag/ruleset</urlString>
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
             </localMap>
@@ -296,19 +290,15 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>outputASName</string>
-                <null />
-              </entry>
-              <entry>
-                <string>document</string>
-                <null />
+                <string>enableDebugging</string>
+                <boolean>false</boolean>
               </entry>
               <entry>
                 <string>corpus</string>
                 <null />
               </entry>
               <entry>
-                <string>ontology</string>
+                <string>outputASName</string>
                 <null />
               </entry>
               <entry>
@@ -316,26 +306,26 @@
                 <null />
               </entry>
               <entry>
-                <string>enableDebugging</string>
-                <boolean>false</boolean>
+                <string>ontology</string>
+                <null />
+              </entry>
+              <entry>
+                <string>document</string>
+                <null />
               </entry>
             </localMap>
           </runtimeParams>
           <resourceType>gate.creole.Transducer</resourceType>
-          <resourceName>Mailtransducer1</resourceName>
+          <resourceName>Mailtransducer</resourceName>
           <initParams class="gate.util.persistence.MapPersistence">
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>encoding</string>
-                <string>UTF-8</string>
-              </entry>
-              <entry>
-                <string>annotationAccessors</string>
+                <string>binaryGrammarURL</string>
                 <null />
               </entry>
               <entry>
-                <string>operators</string>
+                <string>annotationAccessors</string>
                 <null />
               </entry>
               <entry>
@@ -345,7 +335,11 @@
                 </gate.util.persistence.PersistenceManager-URLHolder>
               </entry>
               <entry>
-                <string>binaryGrammarURL</string>
+                <string>encoding</string>
+                <string>UTF-8</string>
+              </entry>
+              <entry>
+                <string>operators</string>
                 <null />
               </entry>
             </localMap>
@@ -360,12 +354,8 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>document</string>
-                <null />
-              </entry>
-              <entry>
                 <string>annotationSetName</string>
-                <null />
+                <string />
               </entry>
               <entry>
                 <string>annotationType</string>
@@ -374,6 +364,10 @@
               <entry>
                 <string>annotationFeature</string>
                 <string>string</string>
+              </entry>
+              <entry>
+                <string>document</string>
+                <null />
               </entry>
             </localMap>
           </runtimeParams>
@@ -398,12 +392,8 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>document</string>
-                <null />
-              </entry>
-              <entry>
                 <string>annotationSetName</string>
-                <null />
+                <string />
               </entry>
               <entry>
                 <string>annotationType</string>
@@ -412,6 +402,10 @@
               <entry>
                 <string>annotationFeature</string>
                 <string>string</string>
+              </entry>
+              <entry>
+                <string>document</string>
+                <null />
               </entry>
             </localMap>
           </runtimeParams>

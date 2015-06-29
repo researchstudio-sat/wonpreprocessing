@@ -10,7 +10,7 @@
 *
 *  Diana Maynard, 10 Sep 2001
 * 
-*  $Id: final.jape 17326 2014-02-17 16:38:01Z dgmaynard $
+*  $Id: final.jape 18105 2014-06-20 17:07:26Z dgmaynard $
 */
 
 //note: organization should be included as part of the address ??
@@ -167,13 +167,15 @@ outputAS.removeAll(locSet);
 Rule: DateTimeFinal
 Priority: 20
 // Friday 10 January 2000 2pm
+// 2008-01-25T16:10:48
 
 (
  {TempDate}
  (
   ({Token.string == ","})?
   {TempDate})?
- ({Token.string == ":"})?
+ ({Token.string == ":"}|
+  {Token.string == "T"})?
  {TempTime}
  ({TempYear})?
  ({TempZone})?

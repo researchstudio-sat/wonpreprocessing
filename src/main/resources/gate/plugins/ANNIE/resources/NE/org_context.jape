@@ -10,7 +10,7 @@
 *
 *  Diana Maynard, 10 Sep 2001
 * 
-*  $Id: org_context.jape 17747 2014-03-27 15:16:44Z dgmaynard $
+*  $Id: org_context.jape 18220 2014-07-31 15:05:47Z dgmaynard $
 */
 
 
@@ -357,4 +357,22 @@ features.put("orgType ", "company");
 outputAS.add(org.firstNode(), org.lastNode(), "Organization",
 features);
 outputAS.removeAll(personSet);
+}
+
+
+Rule:CityUniversity
+
+(
+ {Location.locType == city}
+ {Token.string == "University"}
+ ):tag
+ -->
+ {
+gate.AnnotationSet org = (gate.AnnotationSet) bindings.get("tag");
+gate.FeatureMap features = Factory.newFeatureMap();
+features.put("rule ", "CityUniversity");
+features.put("orgType ", "university");
+outputAS.add(org.firstNode(), org.lastNode(), "Organization",
+features);
+outputAS.removeAll(org);
 }
