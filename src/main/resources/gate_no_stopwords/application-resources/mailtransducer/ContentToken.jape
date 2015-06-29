@@ -1,0 +1,11 @@
+Phase: ContentToken
+Input:  Content Token
+Options: control = brill
+
+Rule: ContentTokenRule
+Priority: 20
+(
+{Token within Content}
+):token
+-->
+:token.ContentToken = {rule = "ContentTokenRule", string = :token.Token.string, length = :token.Token.length, category = :token.Token.category} 

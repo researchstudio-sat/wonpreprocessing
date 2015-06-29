@@ -236,16 +236,16 @@
                 <null />
               </entry>
               <entry>
+                <string>inputASName</string>
+                <null />
+              </entry>
+              <entry>
                 <string>posTagAllTokens</string>
                 <boolean>true</boolean>
               </entry>
               <entry>
                 <string>baseTokenAnnotationType</string>
                 <string>Token</string>
-              </entry>
-              <entry>
-                <string>inputASName</string>
-                <null />
               </entry>
               <entry>
                 <string>baseSentenceAnnotationType</string>
@@ -321,11 +321,11 @@
             <mapType>gate.util.SimpleFeatureMapImpl</mapType>
             <localMap>
               <entry>
-                <string>binaryGrammarURL</string>
+                <string>annotationAccessors</string>
                 <null />
               </entry>
               <entry>
-                <string>annotationAccessors</string>
+                <string>binaryGrammarURL</string>
                 <null />
               </entry>
               <entry>

@@ -1,0 +1,11 @@
+Phase: TopicToken
+Input: SubjectToken FilterToken Lookup ContentToken
+Options: control = brill
+
+Rule: TopicTokenRule
+Priority: 20
+(
+{SubjectToken, !FilterToken, !Lookup.majorType == location} 
+):token
+-->
+:token.TopicToken = {rule = "TopicTokenRule", string = :token.SubjectToken.string} 

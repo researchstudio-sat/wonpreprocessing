@@ -1,0 +1,11 @@
+Phase: FilterToken
+Input: Token Brackets Lookup
+Options: control = brill
+
+Rule: FilterTokenRule
+Priority: 20
+(
+{Token.length == 1} | {Token within BracketExpression} | {Lookup.majorType == stop} | {Token.kind != word}
+):token
+-->
+:token.FilterToken = {rule = "FilterTokenRule"} 

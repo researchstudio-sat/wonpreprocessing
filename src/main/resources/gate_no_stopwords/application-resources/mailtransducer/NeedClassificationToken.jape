@@ -1,0 +1,20 @@
+Phase: NeedClassificationToken
+Input: SubjectToken
+Options: control = first
+
+Rule: NeedClassificationTokenRule
+Priority: 20
+(
+{SubjectToken.string =~ "[Oo][Ff][Ff][Ee][Rr]"} | {SubjectToken.string =~ "[Cc][Uu][Rr][Bb]"} 
+):token
+-->
+:token.NeedClassificationToken = {rule = "NeedClassificationTokenRule", kind = "offer"} 
+
+Rule: NeedClassificationTokenRule
+Priority: 20
+(
+{SubjectToken.string =~ "[Ww][Aa][Nn][Tt]"} 
+):token
+-->
+:token.NeedClassificationToken = {rule = "NeedClassificationTokenRule", kind = "want"} 
+

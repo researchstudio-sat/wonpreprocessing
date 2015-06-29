@@ -1,0 +1,12 @@
+MultiPhase: Email
+Phases: 
+Subject
+Content
+Brackets
+FilterToken
+ContentToken
+ContentNNToken
+SubjectToken
+NeedClassificationToken
+TopicToken
+DescriptionToken
