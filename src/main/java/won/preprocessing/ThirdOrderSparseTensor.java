@@ -16,14 +16,13 @@
 
 package won.preprocessing;
 
-import org.la4j.io.MatrixMarketStream;
-import org.la4j.matrix.Matrix;
-import org.la4j.matrix.functor.MatrixProcedure;
+import org.la4j.Matrices;
 import org.la4j.matrix.sparse.CCSMatrix;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * Sparse third order tensor based on la4j implementation of sparse matrices.
@@ -48,21 +47,9 @@ public class ThirdOrderSparseTensor
     CCSMatrix[] newSlices = new CCSMatrix[dimX3];
     for (int x3 = 0; x3 < dimX3; x3++) {
       if (dims != null && x3 < dims[2]) {
-        int[] newDims = {dimX1, dimX2};
-
-        // !!! Dont use the resize method cause there is a bug in version la4j 0.4.9 !!!
-        // => WonMatchingDataTest breaks
-        // slices[x3] = (CCSMatrix) slices[x3].resize(dimX1, dimX2);
-        // newSlices[x3] = slices[x3];
-
-        // Have to copy the matrix in order to resize
-        CCSMatrix copy = new CCSMatrix(dimX1, dimX2);
-        slices[x3].eachNonZero(new CopyToMatrix(copy));
-        slices[x3] = copy;
-        newSlices[x3] = slices[x3];
-
+        newSlices[x3] = slices[x3].copyOfShape(dimX1, dimX2).to(Matrices.CCS);
       } else {
-        newSlices[x3] = new CCSMatrix(dimX1, dimX2);
+        newSlices[x3] = CCSMatrix.zero(dimX1, dimX2);
       }
     }
     dims = new int[]{dimX1, dimX2, dimX3};
@@ -86,33 +73,16 @@ public class ThirdOrderSparseTensor
   }
 
   public void writeToFile(String folder, String filePrefix) throws IOException {
-
     int i = 0;
     for (CCSMatrix slice : slices) {
-      MatrixMarketStream mms = new MatrixMarketStream(
-        new FileOutputStream(new File(folder + filePrefix + "-" + i + ".mtx")));
-      mms.writeMatrix(slice);
+      OutputStream os = new FileOutputStream(new File(folder + filePrefix + "-" + i + ".mtx"));
+      os.write(slice.toMatrixMarket().getBytes());
       i++;
     }
   }
 
   public void writeSliceToFile(String fileName, int slice) throws IOException {
-    MatrixMarketStream mms = new MatrixMarketStream(
-      new FileOutputStream(new File(fileName)));
-    mms.writeMatrix(slices[slice]);
-  }
-
-  private static class CopyToMatrix implements MatrixProcedure
-  {
-    private Matrix copy;
-
-    public CopyToMatrix(CCSMatrix copy) {
-      this.copy = copy;
-    }
-
-    @Override
-    public void apply(int i, int j, double value) {
-      copy.set(i, j, value);
-    }
+    OutputStream os = new FileOutputStream(new File(fileName));
+    os.write(slices[slice].toMatrixMarket().getBytes());
   }
 }
