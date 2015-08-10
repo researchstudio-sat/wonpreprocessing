@@ -11,11 +11,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from nltk.corpus import stopwords
 from sklearn.multiclass import OneVsRestClassifier
 
-# Get the input from a folder in C:
 def get_example_data():
 
-    header_file = 'C:/Users/Federico/Desktop/test/evaluation/tensor_content_NEW/headers.txt'
-    data_file_prefix = 'C:/Users/Federico/Desktop/test/evaluation/tensor_content_NEW'
+    # read the tensor from the folder passed by args
+    data_file_prefix = sys.argv[1]
+    header_file = data_file_prefix + '/headers.txt'
     data_files = [data_file_prefix + "/connection.mtx",
                   data_file_prefix + "/needtype.mtx",
                   data_file_prefix + "/subject.mtx",
